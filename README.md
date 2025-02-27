@@ -1,8 +1,6 @@
 CUDA Path Tracer
 ================
 
-**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
-
 ## Features
 - **Wavefront Path Tracing**
   - **Sperating megakernels into several kernels**: `RayGen`, `Intersection`, `Shade` ...

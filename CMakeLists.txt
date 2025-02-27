@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-project(cis565_path_tracer)
+project(renderer)
 
 # Enable C++17 for host code
 set(CMAKE_CXX_STANDARD 17)
@@ -24,7 +24,7 @@ endif()
 ########################################
 # CUDA Setup
 ########################################
-find_package(CUDA 10 REQUIRED)
+find_package(CUDA 11 REQUIRED)
 include(${CMAKE_MODULE_PATH}/CUDAComputesList.cmake)
 
 list(APPEND CUDA_NVCC_FLAGS ${CUDA_GENERATE_CODE})
@@ -66,8 +66,6 @@ include_directories(${GLM_INCLUDE_DIRS})
 
 set(JSON_ROOT_DIR "external")
 include_directories(${JSON_ROOT_DIR}/include/nlohmann)
-
-# set(LIBRARIES glfw GLEW::GLEW ${OPENGL_gl_LIBRARY})
 
 include_directories(src)
 

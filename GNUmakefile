@@ -23,7 +23,7 @@ RelWithDebugInfo: build
 
 
 run:
-	build/cis565_path_tracer scenes/sphere.txt
+	build/renderer scenes/cornell.json
 
 build:
 	mkdir -p build
