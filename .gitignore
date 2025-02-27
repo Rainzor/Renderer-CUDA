@@ -1,0 +1,9 @@
+*cmake-build*
+*.orig
+*.filters
+*.sln
+*.vcxproj
+*.xcodeproj
+build
+install
+.vscode
