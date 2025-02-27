@@ -24,6 +24,7 @@ glm::vec3 ogLookAt; // for recentering the camera
 Scene* scene;
 GuiDataContainer* guiData;
 RenderState* renderState;
+Integrator* integrator;
 int iteration;
 
 int width;
@@ -45,6 +46,8 @@ int main(int argc, char** argv) {
 
 	// Load scene file
 	scene = new Scene(sceneFile);
+
+	integrator = new Integrator;
 
 	//Create Instance for ImGUIData
 	guiData = new GuiDataContainer();
@@ -78,12 +81,22 @@ int main(int argc, char** argv) {
 
 	// Initialize ImGui Data
 	InitImguiData(guiData);
-	InitDataContainer(guiData);
+	// InitDataContainer(guiData);
 
 	// GLFW main loop
 	mainLoop();
 
 	return 0;
+}
+
+void freeData() {
+	delete guiData;
+	resourceFree();
+	pathtraceFree();
+	//integrator->resourceFree();
+	//integrator->pathtraceFree();
+	delete integrator;
+	delete scene;
 }
 
 void saveImage() {
@@ -136,8 +149,11 @@ void runCuda() {
 
 	if (reset) {
 		pathtraceFree();
+		integrator->pathtraceFree();
 		pathtraceInit(scene);
+		integrator->pathtraceInit(scene);
 		if (first) {
+			integrator->resourceInit(scene);
 			resourceInit(scene);
 			first = false;
 		}
@@ -153,15 +169,14 @@ void runCuda() {
 
 		// execute the kernel
 		int frame = 0;
-		pathtrace(pbo_dptr, frame, iteration);
+		pathtrace(pbo_dptr, frame, iteration, guiData);
 
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);
 	}
 	else {
 		saveImage();
-		resourceFree();
-		pathtraceFree();
+		freeData();
 		cudaDeviceReset();
 		exit(EXIT_SUCCESS);
 	}

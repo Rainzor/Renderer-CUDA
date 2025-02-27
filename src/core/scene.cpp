@@ -35,7 +35,8 @@ Scene::Scene(std::string filename) {
         }
 		Material default_m;
 		default_m.type = MaterialType::DIFFUSE;
-		default_m.texture.color = glm::vec3(1.0f);
+		default_m.diffuse = glm::vec3(1.0f);
+		default_m.texture_id = -1;
 		default_m.emittance = 0.0f;
 		default_m.indexOfRefraction = 1.0f;
 		materials.push_back(default_m);
@@ -153,20 +154,24 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
 
     // Load color and other properties
     if (materialData.contains("rgb")) {
-        newMaterial.texture.color = glm::vec3(materialData["rgb"][0], materialData["rgb"][1], materialData["rgb"][2]);
-    }
-    else if (materialData.contains("bitmap")) {
-        newMaterial.texture.color = glm::vec3(1.0f);
-        newMaterial.texture.type = TextureType::BITMAP;
-        
+        newMaterial.diffuse = glm::vec3(materialData["rgb"][0], materialData["rgb"][1], materialData["rgb"][2]);
+	}
+	else {
+		newMaterial.diffuse = glm::vec3(1.0f);
+	}
+
+    if (materialData.contains("bitmap")) {
         auto bitmap_path = fs::path(workdir) / string(materialData["bitmap"]);
 		if (loadBitmap(bitmap_path.string()) == 1)
-            newMaterial.texture.bitmapId = bitmaps.size() - 1;
+            newMaterial.texture_id = bitmaps.size() - 1;
         else {
             return -1;
         }
+	}
+	else {
+		newMaterial.texture_id = -1;
+	}
 
-    }
     if (materialData.contains("emission")) {
         newMaterial.emittance = materialData["emission"];
     }
@@ -301,19 +306,17 @@ int Scene::loadObj(const string& obj_path,const Transform& trans, bool usemtl) {
 		tinyobj::material_t &mat = to_materials[i];
 		newMaterial.type = MaterialType::DIFFUSE;
 		newMaterial.indexOfRefraction = mat.ior;
+		newMaterial.diffuse = glm::vec3(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2]);
         if (mat.diffuse_texname != "") {
-			newMaterial.texture.type = TextureType::BITMAP;
-			newMaterial.texture.color = glm::vec3(1.0f);
 			fs::path bitmap_path = fs::path(base_dir) / mat.diffuse_texname;
 			if (loadBitmap(bitmap_path.string()) == 1)
-				newMaterial.texture.bitmapId = bitmaps.size() - 1;
+				newMaterial.texture_id = bitmaps.size() - 1;
             else {
                 return -1;
             }
 		}
 		else {
-			newMaterial.texture.color = glm::vec3(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2]);
-			newMaterial.texture.type = TextureType::RGB;
+			newMaterial.texture_id = -1;
 		}
 		this->materials.push_back(newMaterial);
     }

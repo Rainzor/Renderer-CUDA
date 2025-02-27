@@ -15,7 +15,13 @@
 
 using json = nlohmann::json;
 using namespace std;
-
+struct RenderState {
+    Camera camera;
+    unsigned int iterations;
+    int traceDepth;
+    std::vector<glm::vec3> image;
+    std::string imageName;
+};
 class Scene {
 private:
 	string workdir;

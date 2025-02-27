@@ -8,12 +8,14 @@ enum MaterialType: unsigned char {
     DIFFUSE,
     SPECULAR,
     DIELECTRIC,
+    CONDUCTOR,
+    PLASTIC,
 };
 
-enum TextureType {
-    RGB,
-    BITMAP,
-};
+//enum TextureType {
+//    RGB,
+//    BITMAP,
+//};
 
 struct Bitmap {
     public:
@@ -36,15 +38,19 @@ struct Bitmap {
         }
     };
 
-struct Texture {
-    TextureType type = RGB;
-    glm::vec3 color = glm::vec3(0.0f);
-    size_t bitmapId = 0; 
-};
+//struct Texture {
+//    TextureType type = RGB;
+//    glm::vec3 color = glm::vec3(0.0f);
+//    size_t bitmapId = 0; 
+//};
 
 struct Material {
-    enum MaterialType type;
-    Texture texture;
-    float indexOfRefraction;
-    float emittance; 
+	enum MaterialType type = DIFFUSE;
+	int texture_id = -1;
+	float indexOfRefraction = 1.0f;
+	float emittance = 0.0f;
+	float roughness = 0.0f;
+	glm::vec3 diffuse = glm::vec3(1.0f);
+	glm::vec3 eta = glm::vec3(0.0f);
+	glm::vec3 k = glm::vec3(0.0f);
 };

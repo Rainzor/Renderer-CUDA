@@ -11,16 +11,13 @@
 
 #include "pathtrace.h"
 #include "sceneStructs.h"
-#include "scene.h"
 #include "glm/glm.hpp"
 #include "glm/gtx/norm.hpp"
-#include "intersections.cuh"
-#include "bsdf.cuh"
-#include "utils/utilities.h"
+#include "intersections.h"
+#include "bsdf.h"
 
 
 #define ERRORCHECK 1
-
 #define USE_NEE 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -63,7 +60,7 @@ struct is_valid{
 };
 
 static Scene* hst_scene = NULL;
-static GuiDataContainer* guiData = NULL;
+// static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
 static GeomGPU* dev_geoms = NULL;
 static BVHNode* dev_bvh = NULL;
@@ -72,17 +69,12 @@ static BVHNode** dev_tribvh_ptr = NULL;
 static Light* dev_lights = NULL;
 
 static Material* dev_materials = NULL;
-static Bitmap* dev_bmp_ptr = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadowRay* dev_shadows = NULL;
 static Intersection* dev_intersections = NULL;
+
 static cudaTextureObject_t* hst_texs = NULL;
 static cudaTextureObject_t* dev_texs = NULL;
-
-void InitDataContainer(GuiDataContainer* imGuiData)
-{
-	guiData = imGuiData;
-}
 
 void pathtraceInit(Scene* scene) {
 	hst_scene = scene;
@@ -171,7 +163,6 @@ void resourceInit(Scene *scene) {
 	}
 
 	if (!scene->bitmaps.empty()) {
-		//cudaMalloc(&dev_bmp_ptr, scene->bitmaps.size() * sizeof(Bitmap));
 		hst_texs = new cudaTextureObject_t[scene->bitmaps.size()];
 		for (int i = 0; i < scene->bitmaps.size(); i++)
 		{
@@ -203,8 +194,8 @@ void resourceInit(Scene *scene) {
 		cudaMemcpy(dev_texs, hst_texs, scene->bitmaps.size() * sizeof(cudaTextureObject_t), cudaMemcpyHostToDevice);
 	}
 	else {
-		dev_bmp_ptr = NULL;
 		dev_texs = NULL;
+		hst_texs = NULL;
 	}
 	// TODO: initialize any extra device memeory you need
 	checkCUDAError("resourceInit");
@@ -214,29 +205,27 @@ void resourceFree() {
 
 	// TODO: clean up any extra device memory you created
 	int numBitmaps = hst_scene->bitmaps.size();
-	if (dev_bmp_ptr != NULL && numBitmaps > 0) {
-		for (int i = 0; i < hst_scene->bitmaps.size(); i++) {
-			cudaFree(dev_bmp_ptr[i].pixels);
-		}
-		cudaFree(dev_bmp_ptr);
-	}
-	if (dev_texs != NULL)
+
+	if (dev_texs != NULL){
 		cudaFree(dev_texs);
-
-	for (int i = 0; i < numBitmaps; i++)
-	{
-		cudaTextureObject_t texObj = hst_texs[i];
-
-		// Get the cudaArray from the texture object
-		cudaResourceDesc resDesc;
-		cudaGetTextureObjectResourceDesc(&resDesc, texObj);
-		cudaArray_t array = resDesc.res.array.array;
-
-		// Destroy the texture object and free the cudaArray
-		cudaDestroyTextureObject(texObj);
-		cudaFreeArray(array);
 	}
-	delete[] hst_texs;
+	if (hst_texs != NULL){
+		for (int i = 0; i < numBitmaps; i++)
+		{
+			cudaTextureObject_t texObj = hst_texs[i];
+
+			// Get the cudaArray from the texture object
+			cudaResourceDesc resDesc;
+			cudaGetTextureObjectResourceDesc(&resDesc, texObj);
+			cudaArray_t array = resDesc.res.array.array;
+
+			// Destroy the texture object and free the cudaArray
+			cudaDestroyTextureObject(texObj);
+			cudaFreeArray(array);
+		}
+		delete[] hst_texs;
+	}
+
 
 	cudaFree(dev_geoms);
 
@@ -332,8 +321,6 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 
 
 // computeIntersections handles generating ray intersections ONLY.
-// Generating new rays is handled in your shader(s).
-// Feel free to modify the code below.
 __global__ void computeIntersections(
 	int num_paths,
 	PathSegment* pathSegments,
@@ -403,19 +390,14 @@ __global__ void shadeMaterialMIS(
 	thrust::uniform_real_distribution<float> u01(0, 1);
 
 	Material* material = &materials[intersection.material_id];
+	glm::vec3 material_color = material->diffuse;;
 
-	Texture& texture = material->texture;
-	glm::vec3 material_color;
+	//Texture& texture = material->texture;
 
-	if (texture.type == TextureType::BITMAP)
+	if (material->texture_id != -1)
 	{
-		//materialColor = getPixel(bitmaps[texture.bitmapId], intersection.uv);
-		
-		float4 texColor = tex2D<float4>(texObjs[texture.bitmapId], intersection.uv.x, intersection.uv.y);
-		material_color = glm::vec3(texColor.x, texColor.y, texColor.z);
-	}
-	else {
-		material_color = texture.color;
+		float4 texColor = tex2D<float4>(texObjs[material->texture_id], intersection.uv.x, intersection.uv.y);
+		material_color *= glm::vec3(texColor.x, texColor.y, texColor.z);
 	}
 
 	// If the material indicates that the object was a light, "light" the ray
@@ -530,27 +512,12 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
-__global__ void testTextureMapping(
-	cudaTextureObject_t* texObjs, int texs_idx, int width, int height, glm::vec3* image){
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	if (x < width && y < height) {
-		int index = x + (y * width);
-		float u = (float)x / (float)width;
-		float v = (float)y / (float)height;
-		{
-			float4 texColor = tex2D<float4>(texObjs[texs_idx], 1-u, v);
-			image[index] += glm::vec3(texColor.x, texColor.y, texColor.z);
-		}
-	}
-}
-
 /**
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
 
-void pathtrace(uchar4* pbo, int frame, int iter) {
+void pathtrace(uchar4* pbo, int frame, int iter, GuiDataContainer* guiData) {
 	/*
 	* 1.  Ray Generation
 	* 2.  Intersection with Scene
@@ -589,16 +556,10 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	//     t, or a "distance along the ray." t = -1.0 indicates no intersection.
 	//     * Color is attenuated (multiplied) by reflections off of any object
 	//   * Stream compact away all of the terminated paths.
-	//     You may use either your implementation or `thrust::remove_if` or its
-	//     cousins.
-	//     * Note that you can't really use a 2D kernel launch any more - switch
-	//       to 1D.
 	//   * Shade the rays that intersected something or didn't bottom out.
 	//     That is, color the ray by performing a color computation according
 	//     to the shader, then generate a new ray to continue the ray path.
-	//     We recommend just updating the ray's PathSegment in place.
-	//     Note that this step may come before or after stream compaction,
-	//     since some shaders you write may also cause a path to terminate.
+	//     Recommend just updating the ray's PathSegment in place.
 	// 	 * Finally, add this iteration's results to the image. 
 
 	// --- 1. Generating Camera Rays ---
@@ -682,11 +643,6 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	finalGather << <numBlocksPixels, blockSize1d >> > (pixelcount, dev_image, dev_paths);
 
 	//-------------------------------------------------------------------------
-
-	//// Test Texture Mapping
-	//testTextureMapping << <blocksPerGrid2d, blockSize2d >> > (dev_texs, 0, cam.resolution.x, cam.resolution.y, dev_image);
-
-
 	// Send results to OpenGL buffer for rendering
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
 

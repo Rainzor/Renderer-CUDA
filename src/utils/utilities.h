@@ -14,7 +14,8 @@
 #define TWO_PI            6.2831853071795864769252867665590057683943f
 #define SQRT_OF_ONE_THIRD 0.5773502691896257645091487805019574556476f
 #define EPSILON           0.00001f
-
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
+#define MAX(a,b) (((a) > (b)) ? (a) : (b))
 class GuiDataContainer
 {
 public:

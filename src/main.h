@@ -16,6 +16,8 @@
 #include "core/sceneStructs.h"
 #include "core/pathtrace.h"
 #include "core/scene.h"
+#include "core/integrator.h"
+
 #include "utils/glslUtility.h"
 #include "utils/utilities.h"
 #include "image.h"

@@ -1,8 +1,6 @@
 #pragma once
 
-#include "intersections.cuh"
-
-
+#include "intersections.h"
 
 // MIS balance heuristic
 __host__ __device__ float powerHeuristic(float f, float g, int nf=1, int ng=1) {
