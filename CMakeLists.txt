@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-project(renderer)
+project(Renderer)
 
 # Enable C++17 for host code
 set(CMAKE_CXX_STANDARD 17)

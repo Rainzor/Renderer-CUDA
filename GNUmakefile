@@ -23,7 +23,7 @@ RelWithDebugInfo: build
 
 
 run:
-	build/renderer scenes/cornell.json
+	build/Renderer scenes/cornell.json
 
 build:
 	mkdir -p build
