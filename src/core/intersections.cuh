@@ -2,8 +2,9 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtx/intersect.hpp>
-#include "sceneStructs.h"
 #include "utils/utilities.h"
+#include "integrator.h"
+#include "ray.h"
 
 /**
  * Handy-dandy hash function that provides seeds for random number generation.
@@ -21,20 +22,20 @@ __host__ __device__ inline unsigned int utilhash(unsigned int a) {
 /**
  * Multiplies a mat4 and a vec4 and returns a vec3 clipped from the vec4.
  */
-__host__ __device__ glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v) {
+__host__ __device__ inline glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v) {
     return glm::vec3(m * v);
 }
 
 /**
- * Test intersection between a ray and a transformed cube. Untransformed,
+ * Test record between a ray and a transformed cube. Untransformed,
  * the cube ranges from -0.5 to 0.5 in each axis and is centered at the origin.
  *
- * @param Intersection       Output the record of the intersection.
- * @return                   Whether the intersection test was successful.
+ * @param CUDARecord       Output the record of the record.
+ * @return                   Whether the record test was successful.
  */
 __device__ bool boxIntersectionTest(Ray r, float tmax,
-        Intersection & intersection) {
-	intersection.t = -1;
+        CUDARecord & record) {
+	record.t = -1;
 	glm::vec3 intersectionPoint;
     Ray &q = r;
 	bool outside;
@@ -71,29 +72,29 @@ __device__ bool boxIntersectionTest(Ray r, float tmax,
             outside = false;
         }
 
-		intersection.t = tmin;
-		intersection.surfaceNormal = tmin_n;
-		intersection.outside = outside;
+		record.t = tmin;
+		record.surfaceNormal = tmin_n;
+		record.outside = outside;
 		return true;
     }
     return false;
 }
 
 /**
- * Test intersection between a ray and a transformed sphere. Untransformed,
+ * Test record between a ray and a transformed sphere. Untransformed,
  * the sphere always has radius 1 and is centered at the origin.
  *
  * @param  r				 The ray to test.
  * @param  tmax			     The maximum distance along the ray to test.
- * @param  intersection      Output the record of the intersection.
+ * @param  record      Output the record of the record.
  * @param  outside           Whether the ray came from outside the sphere.
- * @return                   Whether the intersection test was successful.
+ * @return                   Whether the record test was successful.
  */
 __device__ bool sphereIntersectionTest(Ray r, float tmax,
-        Intersection& intersection) {
+        CUDARecord& record) {
 	glm::vec3 intersectionPoint;
     glm::vec3 normal;
-	intersection.t = -1;
+	record.t = -1;
     float radius = 1.f;
 	bool outside;
 
@@ -139,29 +140,29 @@ __device__ bool sphereIntersectionTest(Ray r, float tmax,
         normal = -normal;
     }
 
-	intersection.surfaceNormal = normal;
-	intersection.uv = uv;
-	intersection.t = t;
-	intersection.outside = outside;
+	record.surfaceNormal = normal;
+	record.uv = uv;
+	record.t = t;
+	record.outside = outside;
 	return true;
 }
 
 
 /**
-* Test intersection between a ray and a transformed triangle mesh.
+* Test record between a ray and a transformed triangle mesh.
 * 
 * @param  r				    The ray to test.
 * @param  tmax			    The maximum distance along the ray to test.
-* @param  intersection      Output the record of the intersection.
-* @return                   Whether the intersection test was successful.
+* @param  record      Output the record of the record.
+* @return                   Whether the record test was successful.
 */
 
 
 __device__ bool trimeshIntersectionTest(Ray r, float tmax,
-	Intersection& intersection, Triangle* triangles, BVHNode* bvh_nodes) {
+	CUDARecord& record, Triangle* triangles, BVHNode* bvh_nodes) {
 	glm::vec3 intersectionPoint;
 	glm::vec3 normal;
-	intersection.t = -1;
+	record.t = -1;
 
     Ray &q = r;
 	float tmin = 0;
@@ -184,13 +185,13 @@ __device__ bool trimeshIntersectionTest(Ray r, float tmax,
 		BVHNode* node = *(stackPtr--); // pop
 		stack_size--;
 		if(node == NULL) break;
-        // Bounding box intersection check
+        // Bounding box record check
         else {
             if (node->isLeaf()) {
                 Triangle& tri = triangles[node->primId];
                 glm::vec3 baryPos;
 				float distance;
-                // Triangle-ray intersection check
+                // Triangle-ray record check
 				//if (glm::intersectRayTriangle(q.origin, q.direction, tri.v0, tri.v1, tri.v2, baryPos, distance)) {
 				if (glm::intersectRayTriangle(q.origin, q.direction, tri.v0, tri.v1, tri.v2, baryPos)) {
 					float t_temp = baryPos.z;
@@ -241,14 +242,14 @@ __device__ bool trimeshIntersectionTest(Ray r, float tmax,
 		normal = weight.x * triangles[triangle_id].n0 +
                  weight.y * triangles[triangle_id].n1 +
                  weight.z * triangles[triangle_id].n2;
-		intersection.surfaceNormal = normal;
-		intersection.t = t;
+		record.surfaceNormal = normal;
+		record.t = t;
 
-		intersection.uv = weight.x * triangles[triangle_id].uv0 +
+		record.uv = weight.x * triangles[triangle_id].uv0 +
 			              weight.y * triangles[triangle_id].uv1 +
 			              weight.z * triangles[triangle_id].uv2;
-		intersection.uv.y = 1 - intersection.uv.y;
-		intersection.outside = glm::dot(q.direction, normal) < 0;
+		record.uv.y = 1 - record.uv.y;
+		record.outside = glm::dot(q.direction, normal) < 0;
 		return true;
 	}
 	return false;
@@ -258,13 +259,13 @@ __device__ bool trimeshIntersectionTest(Ray r, float tmax,
 
 __device__ bool worldIntersectionTest(
     Ray ray, float tmax,
-    Intersection& intersection,
-	GeomGPU* geoms,
+	CUDARecord& record,
+	CUDAGeom* geoms,
     BVHNode* geomBVHs
     ) {
 	bool outside;
     float final_t = tmax;
-	Intersection test_intersection;
+	CUDARecord test_record;
     glm::vec3 intersect_point;
     glm::vec3 normal;
     bool is_intersect = false;
@@ -280,7 +281,7 @@ __device__ bool worldIntersectionTest(
     float t_root_max = FLT_MAX;
     float t_root_min = 0;
     if (!geomBVHs[0].bbox.intersect(ray, t_root_min, t_root_max)) {
-        intersection.t = -1.0f;
+        record.t = -1.0f;
         return false;
     }
 
@@ -296,36 +297,36 @@ __device__ bool worldIntersectionTest(
 
 			if (node->isLeaf()) {
 				Ray local_ray = ray;
-				GeomGPU& geom = geoms[node->primId];
+				CUDAGeom& geom = geoms[node->primId];
 				local_ray.origin = multiplyMV(geom.transform.inverseTransform, glm::vec4(local_ray.origin, 1.0f));
 				local_ray.direction = glm::normalize(multiplyMV(geom.transform.inverseTransform, glm::vec4(local_ray.direction, 0.0f)));
 
-				test_intersection.t = -1.0f;
+				test_record.t = -1.0f;
 				is_intersect = false;
 
 				if (geom.type == Primitive::CUBE)
 				{
-					is_intersect = boxIntersectionTest(local_ray, final_t, test_intersection);
+					is_intersect = boxIntersectionTest(local_ray, final_t, test_record);
 				}
 				else if (geom.type == Primitive::SPHERE)
 				{
-					is_intersect = sphereIntersectionTest(local_ray, final_t, test_intersection);
+					is_intersect = sphereIntersectionTest(local_ray, final_t, test_record);
 				}
 				else if (geom.type == Primitive::TRIANGLE) {
-					is_intersect = trimeshIntersectionTest(local_ray, final_t, test_intersection, geom.dev_triangles, geom.dev_bvh_nodes);
+					is_intersect = trimeshIntersectionTest(local_ray, final_t, test_record, geom.dev_triangles, geom.dev_bvh_nodes);
 				}
 
 				if (is_intersect) {
-					intersect_point = multiplyMV(geom.transform.transform, glm::vec4(getPointOnRay(local_ray, test_intersection.t), 1.0f));
-					normal = glm::normalize(multiplyMV(geom.transform.invTranspose, glm::vec4(test_intersection.surfaceNormal, 0.0f)));
-					test_intersection.t = glm::length(intersect_point - ray.origin);
-					test_intersection.surfaceNormal = normal;
-					test_intersection.material_id = geom.material_id;
-					// Compute the minimum t from the intersection tests to determine 
+					intersect_point = multiplyMV(geom.transform.transform, glm::vec4(getPointOnRay(local_ray, test_record.t), 1.0f));
+					normal = glm::normalize(multiplyMV(geom.transform.invTranspose, glm::vec4(test_record.surfaceNormal, 0.0f)));
+					test_record.t = glm::length(intersect_point - ray.origin);
+					test_record.surfaceNormal = normal;
+					test_record.material_id = geom.material_id;
+					// Compute the minimum t from the record tests to determine 
 					// what scene geometry object was hit first.
-					if (test_intersection.t < final_t) {
-						final_t = test_intersection.t;
-						intersection = test_intersection;
+					if (test_record.t < final_t) {
+						final_t = test_record.t;
+						record = test_record;
 						anyhit = true;
 					}
 				}

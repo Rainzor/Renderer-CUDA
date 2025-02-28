@@ -167,8 +167,7 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
         else {
             return -1;
         }
-	}
-	else {
+	} else {
 		newMaterial.texture_id = -1;
 	}
 

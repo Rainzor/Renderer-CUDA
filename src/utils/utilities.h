@@ -8,7 +8,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "core/shape.h"
 
 #define PI                3.1415926535897932384626422832795028841971f
 #define TWO_PI            6.2831853071795864769252867665590057683943f

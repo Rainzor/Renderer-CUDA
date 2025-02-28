@@ -1,9 +1,12 @@
 #pragma once
 
-#include "intersections.h"
+#include <cuda_texture_types.h>
+#include <glm/glm.hpp>
+#include <glm/gtx/norm.hpp>
+#include "ray.h"
 
 // MIS balance heuristic
-__host__ __device__ float powerHeuristic(float f, float g, int nf=1, int ng=1) {
+__device__ float powerHeuristic(float f, float g, int nf=1, int ng=1) {
     f = nf * f;
     g = ng * g;
     return (f * f) / (g * g + f * f);
@@ -13,7 +16,7 @@ __host__ __device__ float powerHeuristic(float f, float g, int nf=1, int ng=1) {
  * Computes a cosine-weighted random direction on a hemisphere surface.
  * Used for diffuse lighting.
  */
-__host__ __device__
+__device__
 glm::vec3 calculateRandomDirectionOnHemisphere(
         glm::vec3 normal, thrust::default_random_engine &rng) {
     thrust::uniform_real_distribution<float> u01(0, 1);
@@ -46,7 +49,7 @@ glm::vec3 calculateRandomDirectionOnHemisphere(
         + sin(around) * over * perpendicularDirection2;
 }
 
-__host__ __device__
+__device__
 glm::vec2 sampleUnitDiskConcentric(const glm::vec2& u){
     glm::vec2 uOffset = 2.f * u - glm::vec2(1.f);
     if (uOffset.x == 0 && uOffset.y == 0) {
@@ -64,6 +67,18 @@ glm::vec2 sampleUnitDiskConcentric(const glm::vec2& u){
 
     return r * glm::vec2(std::cos(theta), std::sin(theta));
 }
+
+__device__ 
+glm::vec3 sample_albedo(const glm::vec3 diffuse, const cudaTextureObject_t* texObjs, int texture_id, const glm::vec2 uv) {
+    glm::vec3 albedo = diffuse;
+    if (texture_id != -1)
+    {
+        float4 texColor = tex2D<float4>(texObjs[texture_id], uv.x, uv.y);
+        albedo *= glm::vec3(texColor.x, texColor.y, texColor.z);
+    }
+    return albedo;
+}
+
 
 
 /**
@@ -89,41 +104,44 @@ glm::vec2 sampleUnitDiskConcentric(const glm::vec2& u){
  * This method returns a Sample struct with the scattered ray direction, the bsdf and the pdf.
  * You may need to change the parameter list for your purposes!
  */
-__host__ __device__
+__device__
 void scatterRay(
-        PathSegment& path,
-	    ShadowRay& shadow_ray,
-        const Intersection & intersection,
-        const Material *material,
-	    const glm::vec3& abedo,
+        CUDATracer& path,
+	    CUDAShadowRay& shadow_ray,
+        const CUDARecord & record,
+        const CUDAMaterial *material,
+	    const cudaTextureObject_t* texObjs,
         const Light* lights,
 	    const int& num_lights,
         const float& total_lights_weight,
         thrust::default_random_engine& rng) {
     // ! Scatter the ray according to the type of material
     thrust::uniform_real_distribution<float> u01(0, 1);
-	Ray ray_o = path.path_ray;
+	Ray ray_o = path.ray;
     glm::vec3 BSDF;
     glm::vec3 direct_i = glm::vec3(0.f);
 	glm::vec3 direct_o = ray_o.direction;
+	glm::vec3 abedo = glm::vec3(0.f);
     if (material->type == MaterialType::SPECULAR){ // Perfect Reflection
-        direct_i = glm::reflect(direct_o, intersection.surfaceNormal);
-        float cosTheta = glm::dot(direct_i, intersection.surfaceNormal);
+        direct_i = glm::reflect(direct_o, record.surfaceNormal);
+        float cosTheta = glm::dot(direct_i, record.surfaceNormal);
+        abedo = sample_albedo(material->diffuse.diffuse, texObjs, material->diffuse.texture_id, record.uv);
         BSDF = abedo / cosTheta;
         path.last_pdf = 1.f;
 		path.from_specular = true;
     } else if (material->type == MaterialType::DIFFUSE){ // Lambertian
-        direct_i = calculateRandomDirectionOnHemisphere(intersection.surfaceNormal, rng);
+        direct_i = calculateRandomDirectionOnHemisphere(record.surfaceNormal, rng);
+		abedo = sample_albedo(material->specular.diffuse, texObjs, material->specular.texture_id, record.uv);
         BSDF = abedo / PI;
-        path.last_pdf = glm::dot(direct_i, intersection.surfaceNormal) / PI;
+        path.last_pdf = glm::dot(direct_i, record.surfaceNormal) / PI;
 		path.from_specular = false;
 	}
 	else if (material->type == MaterialType::LIGHT) {// No scattering
 		assert(false);
     }
-    float cosTheta = glm::dot(direct_i, intersection.surfaceNormal);
-	path.path_ray.origin = getPointOnRay(path.path_ray, intersection.t);
-    path.path_ray.direction = direct_i;
+    float cosTheta = glm::dot(direct_i, record.surfaceNormal);
+	path.ray.origin = getPointOnRay(path.ray, record.t);
+    path.ray.direction = direct_i;
 	glm::vec3 throughput_in = path.throughput;
 	path.throughput *= BSDF * cosTheta / path.last_pdf;
 	// Shadow ray: Next Event Estimation
@@ -137,7 +155,7 @@ void scatterRay(
                 break;
             }
         }
-        const glm::vec3& hit_point = path.path_ray.origin;
+        const glm::vec3& hit_point = path.ray.origin;
 		glm::vec3 light_pos, light_normal;
 		const Light& light = lights[light_idx];
         light.sample(light_pos, light_normal, rng);
@@ -150,7 +168,7 @@ void scatterRay(
 		shadow_ray.t_max = distance - EPSILON;
 
 		if (material->type == MaterialType::DIFFUSE) {
-			cosTheta = glm::dot(dir_to_light, intersection.surfaceNormal);
+			cosTheta = glm::dot(dir_to_light, record.surfaceNormal);
 			BSDF = abedo / PI;
 			float cosTheta_light = glm::dot(-dir_to_light, light_normal);
 			if (cosTheta > 0 && cosTheta_light > 0) {

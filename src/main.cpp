@@ -1,6 +1,8 @@
 #include "main.h"
 #include "preview.h"
 #include <cstring>
+// #include "core/pathtrace.h"
+#include "core/integrator.h"
 
 static std::string startTimeString;
 
@@ -91,10 +93,10 @@ int main(int argc, char** argv) {
 
 void freeData() {
 	delete guiData;
-	resourceFree();
-	pathtraceFree();
-	//integrator->resourceFree();
-	//integrator->pathtraceFree();
+	//resourceFree();
+	//pathtraceFree();
+	integrator->resourceFree();
+	integrator->pathtraceFree();
 	delete integrator;
 	delete scene;
 }
@@ -148,13 +150,13 @@ void runCuda() {
 	// No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
 	if (reset) {
-		pathtraceFree();
+		//pathtraceFree();
 		integrator->pathtraceFree();
-		pathtraceInit(scene);
+		//pathtraceInit(scene);
 		integrator->pathtraceInit(scene);
 		if (first) {
 			integrator->resourceInit(scene);
-			resourceInit(scene);
+			//resourceInit(scene);
 			first = false;
 		}
 		reset = false;
@@ -169,7 +171,7 @@ void runCuda() {
 
 		// execute the kernel
 		int frame = 0;
-		pathtrace(pbo_dptr, frame, iteration, guiData);
+		integrator->render(pbo_dptr, frame, iteration, guiData);
 
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);
