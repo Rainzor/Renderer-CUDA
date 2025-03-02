@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <string>
 
-#include "core/sceneStructs.h"
 #include "core/scene.h"
 
 #include "utils/glslUtility.h"

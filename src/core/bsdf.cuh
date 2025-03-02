@@ -106,10 +106,10 @@ glm::vec3 sample_albedo(const glm::vec3 diffuse, const cudaTextureObject_t* texO
  */
 __device__
 void scatterRay(
-        CUDATracer& path,
-	    CUDAShadowRay& shadow_ray,
-        const CUDARecord & record,
-        const CUDAMaterial *material,
+    Integrator::CUDATracer& path,
+    Integrator::CUDAShadowRay& shadow_ray,
+        const Integrator::CUDARecord & record,
+        const Integrator::CUDAMaterial *material,
 	    const cudaTextureObject_t* texObjs,
         const Light* lights,
 	    const int& num_lights,

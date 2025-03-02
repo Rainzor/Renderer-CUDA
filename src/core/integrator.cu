@@ -5,21 +5,20 @@
 #include <thrust/random.h>
 #include <thrust/partition.h>
 
-#include "utils/common.h"
 #include "integrator.h"
-#include "intersections.cuh"
 #include "bsdf.cuh"
+#include "intersections.cuh"
 
-__host__ __device__
+__device__
 thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth) {
-	int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index);
+	int h = utilityCore::utilhash((1 << 31) | (depth << 22) | iter) ^ utilityCore::utilhash(index);
 	return thrust::default_random_engine(h);
 }
 
 // Stream Compaction Valid Path
 struct is_valid{
-	__host__ __device__
-		bool operator()(const CUDATracer& path) {
+	__device__
+		bool operator()(const Integrator::CUDATracer& path) {
 		return path.remainingBounces > 0;
 	}
 };
@@ -30,7 +29,7 @@ struct is_valid{
 * Antialiasing - add rays for sub-pixel sampling
 * lens effect - jitter ray origin positions based on a lens
 */
-__global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, CUDATracer* trace_buffer)
+__global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Integrator::CUDATracer* trace_buffer)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -38,7 +37,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, CUDA
 	if (x > cam.resolution.x || y > cam.resolution.y) return;
 
 	int index = x + (y * cam.resolution.x);
-	CUDATracer& new_trace = trace_buffer[index];
+	Integrator::CUDATracer& new_trace = trace_buffer[index];
 
 	new_trace.ray.origin = cam.position;
 	new_trace.color = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -79,17 +78,17 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, CUDA
 // Ray Tracing with BVH
 __global__ void computeIntersections(
 	int num_paths,
-	CUDATracer* trace_buffer,
-	CUDAGeom* geoms,
+	Integrator::CUDATracer* trace_buffer,
+	Integrator::CUDAGeom* geoms,
 	BVHNode* geomBVHs,
-	CUDARecord* records)
+	Integrator::CUDARecord* records)
 {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (path_index >= num_paths)
 		return;
 
-	CUDARecord test_records;
+	Integrator::CUDARecord test_records;
 	bool outside;
 	bool anyhit = worldIntersectionTest(
 		trace_buffer[path_index].ray,
@@ -118,26 +117,36 @@ __global__ void shadeMaterialMIS(
 	int num_paths,
 	int num_lights,
 	float total_lights_weight,
-	CUDARecord* shadeableIntersections,
-	CUDATracer* trace_buffer,
-	CUDAShadowRay* shadowRays,
-	CUDAMaterial* materials,
+	Integrator::CUDARecord* shadeableRecords,
+	Integrator::CUDATracer* trace_buffer,
+	Integrator::CUDAShadowRay* shadowRays,
+	Integrator::CUDAMaterial* materials,
 	Light* lights,
-	cudaTextureObject_t* texObjs
+	const cudaTextureObject_t envmap,
+	const cudaTextureObject_t* texObjs
 )
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= num_paths && trace_buffer[idx].remainingBounces < 0)
 		return;
 
-	CUDARecord record = shadeableIntersections[idx];
-	CUDATracer& cur_trace = trace_buffer[idx];
-	CUDAShadowRay& shadow_ray = shadowRays[idx];
+	Integrator::CUDARecord record = shadeableRecords[idx];
+	Integrator::CUDATracer& cur_trace = trace_buffer[idx];
+	Integrator::CUDAShadowRay& shadow_ray = shadowRays[idx];
 	shadow_ray.radiance_direct = glm::vec3(0);
 	shadow_ray.t_max = -1.0f;
 
 	if (record.t <= 0.0f) {
-		cur_trace.color += BACKGROUND_COLOR * cur_trace.throughput;
+		glm::vec3 background_color = BACKGROUND_COLOR;
+		if (envmap != NULL)
+		{
+			float u = 0.5f + atan2f(cur_trace.ray.direction.z, cur_trace.ray.direction.x) / (2.f * PI);
+			float v = 0.5f - asinf(cur_trace.ray.direction.y) / PI;
+			float4 texColor = tex2D<float4>(envmap, u, v);
+			background_color = glm::vec3(texColor.x, texColor.y, texColor.z);
+		}
+
+		cur_trace.color += background_color * cur_trace.throughput;
 		cur_trace.remainingBounces = 0;
 		return;
 	}
@@ -145,7 +154,7 @@ __global__ void shadeMaterialMIS(
 	thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, depth);
 	thrust::uniform_real_distribution<float> u01(0, 1);
 
-	CUDAMaterial* material = &materials[record.material_id];
+	Integrator::CUDAMaterial* material = &materials[record.material_id];
 	// If the material indicates that the object was a light, "light" the ray
 	if (material->type == MaterialType::LIGHT) {
 #if USE_NEE
@@ -197,9 +206,9 @@ __global__ void shadeMaterialMIS(
 // ! Shadow ray intersection
 __global__ void shadowIntersection(
 	int num_paths,
-	CUDATracer* trace_buffer,
-	CUDAShadowRay* shadowRays,
-	CUDAGeom* geoms,
+	Integrator::CUDATracer* trace_buffer,
+	Integrator::CUDAShadowRay* shadowRays,
+	Integrator::CUDAGeom* geoms,
 	BVHNode* geomBVHs
 )
 {
@@ -207,10 +216,10 @@ __global__ void shadowIntersection(
 	if (idx >= num_paths)
 		return;
 
-	CUDAShadowRay& shadow_ray = shadowRays[idx];
-	CUDATracer& cur_path = trace_buffer[idx];
+	Integrator::CUDAShadowRay& shadow_ray = shadowRays[idx];
+	Integrator::CUDATracer& cur_path = trace_buffer[idx];
 	if (shadow_ray.t_max > 0.0f) {
-		CUDARecord shadow_record;
+		Integrator::CUDARecord shadow_record;
 		bool outside;
 		bool anyhit = worldIntersectionTest(
 			shadow_ray.ray,
@@ -225,31 +234,37 @@ __global__ void shadowIntersection(
 }
 
 // Add the current iteration's output to the overall image
-__global__ void finalGather(int nPaths, glm::vec3* image, CUDATracer* iteration_trace_buffer)
+__global__ void finalGather(int nPaths, glm::vec3* image, Integrator::CUDATracer* iteration_trace_buffer)
 {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
 	if (index < nPaths)
 	{
-		CUDATracer iter_trace = iteration_trace_buffer[index];
+		Integrator::CUDATracer iter_trace = iteration_trace_buffer[index];
 		image[iter_trace.pixel_id] += iter_trace.color;
 	}
 }
 
 //Kernel that writes the image to the OpenGL PBO directly.
 __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
-	int iter, glm::vec3* image) {
+	int spp, glm::vec3* image) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
 	if (x < resolution.x && y < resolution.y) {
 		int index = x + (y * resolution.x);
-		glm::vec3 pix = image[index];
+		glm::vec3 pix = image[index] / (float)spp;
+		// HDR tonemapping
+		pix = utilityCore::tone_mapping(pix);
+		// Gamma correction
+		pix.x = utilityCore::linear_to_gamma(pix.x);
+		pix.y = utilityCore::linear_to_gamma(pix.y);
+		pix.z = utilityCore::linear_to_gamma(pix.z);
 
 		glm::ivec3 color;
-		color.x = glm::clamp((int)(pix.x / iter * 255.0), 0, 255);
-		color.y = glm::clamp((int)(pix.y / iter * 255.0), 0, 255);
-		color.z = glm::clamp((int)(pix.z / iter * 255.0), 0, 255);
+		color.x = glm::clamp((int)(pix.x * 255.0), 0, 255);
+		color.y = glm::clamp((int)(pix.y * 255.0), 0, 255);
+		color.z = glm::clamp((int)(pix.z * 255.0), 0, 255);
 
 		// Each thread writes one pixel location in the texture (textel)
 		pbo[index].w = 0;
@@ -287,8 +302,8 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 	while (!iterationComplete) {
 
 		// clean shading chunks: intersections info
-		cudaMemset(dev_records, 0, pixelcount * sizeof(Intersection));
-		cudaMemset(dev_shadows, 0, pixelcount * sizeof(ShadowRay));
+		cudaMemset(dev_records, 0, pixelcount * sizeof(CUDARecord));
+		cudaMemset(dev_shadows, 0, pixelcount * sizeof(CUDAShadowRay));
 		// --- 2. PathSegment Intersection Stage ---
 		// path tracing to get the intersections with the scene
 		dim3 numblocksPathSegmentTracing = (num_paths + blockSize1d - 1) / blockSize1d;
@@ -299,7 +314,7 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 			dev_world_bvh,
 			dev_records
 			);
-		//checkCUDAError("trace one bounce");
+		checkCUDAError("trace one bounce");
 		cudaDeviceSynchronize();
 
 		// --- 3. Shading Stage ---
@@ -320,6 +335,7 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 			dev_shadows,
 			dev_materials,
 			dev_lights,
+			dev_envmap,
 			dev_texs
 			);
 
@@ -360,5 +376,5 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 	cudaMemcpy(hst_scene->state.image.data(), dev_image,
 		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
-	//checkCUDAError("pathtrace");
+	checkCUDAError("pathtrace");
 }

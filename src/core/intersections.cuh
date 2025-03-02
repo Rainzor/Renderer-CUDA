@@ -6,25 +6,25 @@
 #include "integrator.h"
 #include "ray.h"
 
-/**
- * Handy-dandy hash function that provides seeds for random number generation.
- */
-__host__ __device__ inline unsigned int utilhash(unsigned int a) {
-    a = (a + 0x7ed55d16) + (a << 12);
-    a = (a ^ 0xc761c23c) ^ (a >> 19);
-    a = (a + 0x165667b1) + (a << 5);
-    a = (a + 0xd3a2646c) ^ (a << 9);
-    a = (a + 0xfd7046c5) + (a << 3);
-    a = (a ^ 0xb55a4f09) ^ (a >> 16);
-    return a;
-}
-
-/**
- * Multiplies a mat4 and a vec4 and returns a vec3 clipped from the vec4.
- */
-__host__ __device__ inline glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v) {
-    return glm::vec3(m * v);
-}
+///**
+// * Handy-dandy hash function that provides seeds for random number generation.
+// */
+//__host__ __device__ inline unsigned int utilhash(unsigned int a) {
+//	a = (a + 0x7ed55d16) + (a << 12);
+//	a = (a ^ 0xc761c23c) ^ (a >> 19);
+//	a = (a + 0x165667b1) + (a << 5);
+//	a = (a + 0xd3a2646c) ^ (a << 9);
+//	a = (a + 0xfd7046c5) + (a << 3);
+//	a = (a ^ 0xb55a4f09) ^ (a >> 16);
+//	return a;
+//}
+//
+///**
+// * Multiplies a mat4 and a vec4 and returns a vec3 clipped from the vec4.
+// */
+//__host__ __device__ inline glm::vec3 utilityCore::multiplyMV(glm::mat4 m, glm::vec4 v) {
+//	return glm::vec3(m * v);
+//}
 
 /**
  * Test record between a ray and a transformed cube. Untransformed,
@@ -34,7 +34,7 @@ __host__ __device__ inline glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v) {
  * @return                   Whether the record test was successful.
  */
 __device__ bool boxIntersectionTest(Ray r, float tmax,
-        CUDARecord & record) {
+        Integrator::CUDARecord & record) {
 	record.t = -1;
 	glm::vec3 intersectionPoint;
     Ray &q = r;
@@ -91,7 +91,7 @@ __device__ bool boxIntersectionTest(Ray r, float tmax,
  * @return                   Whether the record test was successful.
  */
 __device__ bool sphereIntersectionTest(Ray r, float tmax,
-        CUDARecord& record) {
+	Integrator::CUDARecord& record) {
 	glm::vec3 intersectionPoint;
     glm::vec3 normal;
 	record.t = -1;
@@ -159,7 +159,7 @@ __device__ bool sphereIntersectionTest(Ray r, float tmax,
 
 
 __device__ bool trimeshIntersectionTest(Ray r, float tmax,
-	CUDARecord& record, Triangle* triangles, BVHNode* bvh_nodes) {
+	Integrator::CUDARecord& record, Triangle* triangles, BVHNode* bvh_nodes) {
 	glm::vec3 intersectionPoint;
 	glm::vec3 normal;
 	record.t = -1;
@@ -259,13 +259,13 @@ __device__ bool trimeshIntersectionTest(Ray r, float tmax,
 
 __device__ bool worldIntersectionTest(
     Ray ray, float tmax,
-	CUDARecord& record,
-	CUDAGeom* geoms,
+	Integrator::CUDARecord& record,
+	Integrator::CUDAGeom* geoms,
     BVHNode* geomBVHs
     ) {
 	bool outside;
     float final_t = tmax;
-	CUDARecord test_record;
+	Integrator::CUDARecord test_record;
     glm::vec3 intersect_point;
     glm::vec3 normal;
     bool is_intersect = false;
@@ -297,9 +297,9 @@ __device__ bool worldIntersectionTest(
 
 			if (node->isLeaf()) {
 				Ray local_ray = ray;
-				CUDAGeom& geom = geoms[node->primId];
-				local_ray.origin = multiplyMV(geom.transform.inverseTransform, glm::vec4(local_ray.origin, 1.0f));
-				local_ray.direction = glm::normalize(multiplyMV(geom.transform.inverseTransform, glm::vec4(local_ray.direction, 0.0f)));
+				Integrator::CUDAGeom& geom = geoms[node->primId];
+				local_ray.origin = utilityCore::multiplyMV(geom.transform.inverseTransform, glm::vec4(local_ray.origin, 1.0f));
+				local_ray.direction = glm::normalize(utilityCore::multiplyMV(geom.transform.inverseTransform, glm::vec4(local_ray.direction, 0.0f)));
 
 				test_record.t = -1.0f;
 				is_intersect = false;
@@ -317,8 +317,8 @@ __device__ bool worldIntersectionTest(
 				}
 
 				if (is_intersect) {
-					intersect_point = multiplyMV(geom.transform.transform, glm::vec4(getPointOnRay(local_ray, test_record.t), 1.0f));
-					normal = glm::normalize(multiplyMV(geom.transform.invTranspose, glm::vec4(test_record.surfaceNormal, 0.0f)));
+					intersect_point = utilityCore::multiplyMV(geom.transform.transform, glm::vec4(getPointOnRay(local_ray, test_record.t), 1.0f));
+					normal = glm::normalize(utilityCore::multiplyMV(geom.transform.invTranspose, glm::vec4(test_record.surfaceNormal, 0.0f)));
 					test_record.t = glm::length(intersect_point - ray.origin);
 					test_record.surfaceNormal = normal;
 					test_record.material_id = geom.material_id;

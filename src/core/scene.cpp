@@ -33,6 +33,20 @@ Scene::Scene(std::string filename) {
             std::cout << "Error loading camera!" << std::endl;
 			throw;
         }
+
+		if (sceneData.contains("emitter")) {
+			auto envmap_path = fs::path(workdir) / string(sceneData["emitter"]["filename"]);
+			if (envmap.loadf(envmap_path.string())) {
+				std::cout << "Loaded environment map from " << envmap_path << std::endl;
+				std::cout << "Width: " << envmap.width << " Height: " << envmap.height << std::endl;
+
+			}
+			else {
+				std::cout << "Error loading environment map!" << std::endl;
+				throw;
+			}
+		}
+
 		Material default_m;
 		default_m.type = MaterialType::DIFFUSE;
 		default_m.diffuse = glm::vec3(1.0f);
@@ -62,11 +76,14 @@ Scene::Scene(std::string filename) {
 
 Scene::~Scene() {
 	std::cout << "Cleaning up scene..." << std::endl;
-	for (int i = 0; i < bitmaps.size(); i++) {
-		delete[] bitmaps[i].pixels;
+	for (int i = 0; i < textures.size(); i++) {
+		delete[] textures[i].pixels;
 	}
 	for (int i = 0; i < trimeshes.size(); i++) {
 		delete[] trimeshes[i].triangles;
+	}
+	if (!envmap.pixelsf) {
+		delete[] envmap.pixelsf;
 	}
 }
 
@@ -108,32 +125,6 @@ int Scene::loadCamera(const json& cameraData) {
     return 1;
 }
 
-int Scene::loadBitmap(const string& bitmapPath){
-	std::cout << "Loading bitmap texture from " << bitmapPath << "..." << std::endl;
-	int w, h, n;
-	unsigned char* data = stbi_load(bitmapPath.c_str(), &w, &h, &n, 0);
-	if (data == nullptr) {
-		std::cout << "Error loading bitmap texture!" << std::endl;
-		return -1;
-	}
-	glm::u8vec4* dataCopy = new glm::u8vec4[w * h];
-	std::cout << "Width: " << w << " Height: " << h << " Channels: " << n << std::endl;
-	for (int i = 0; i < w * h; i++) {
-		unsigned char r = data[i * n];
-		unsigned char g = data[i * n + 1];
-		unsigned char b = data[i * n + 2];
-		unsigned char a = n == 4 ? data[i * n + 3] : 255;
-		dataCopy[i] = glm::u8vec4(r, g, b, a);
-	}
-	Bitmap newBitmap;
-	newBitmap.width = w;
-	newBitmap.height = h;
-	newBitmap.pixels = dataCopy;
-	bitmaps.push_back(newBitmap);
-	stbi_image_free(data);
-	return 1;
-}
-
 int Scene::loadMaterial(const json& materialData) {
 std::cout << std::endl << "Creating new material " << materials.size() << "..." << std::endl;
     Material newMaterial;
@@ -162,8 +153,11 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
 
     if (materialData.contains("bitmap")) {
         auto bitmap_path = fs::path(workdir) / string(materialData["bitmap"]);
-		if (loadBitmap(bitmap_path.string()) == 1)
-            newMaterial.texture_id = bitmaps.size() - 1;
+		Texture newTexture;
+		if (newTexture.load(bitmap_path.string())) {
+			textures.push_back(newTexture);
+			newMaterial.texture_id = textures.size() - 1;
+		}
         else {
             return -1;
         }
@@ -308,11 +302,16 @@ int Scene::loadObj(const string& obj_path,const Transform& trans, bool usemtl) {
 		newMaterial.diffuse = glm::vec3(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2]);
         if (mat.diffuse_texname != "") {
 			fs::path bitmap_path = fs::path(base_dir) / mat.diffuse_texname;
-			if (loadBitmap(bitmap_path.string()) == 1)
-				newMaterial.texture_id = bitmaps.size() - 1;
-            else {
-                return -1;
-            }
+			Texture newTexture;
+			if (newTexture.load(bitmap_path.string())) {
+				cout << "Loaded texture from " << bitmap_path << endl;
+				cout << "Width: " << newTexture.width << " Height: " << newTexture.height << endl;
+				textures.push_back(newTexture);
+				newMaterial.texture_id = textures.size() - 1;
+			}
+			else {
+				return -1;
+			}
 		}
 		else {
 			newMaterial.texture_id = -1;

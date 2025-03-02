@@ -45,7 +45,12 @@
         {
             "type": "light",
             "rgb": [1, 1, 1],
-            "emission": 15
+            "emission": 1
         }
-    ]   
+    ],
+    "emitter": {
+        "type": "envmap",
+        "filename": "textures/envmap.hdr",
+        "scale": 1
+    }
 }

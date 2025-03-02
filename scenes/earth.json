@@ -33,7 +33,7 @@
         },
         {
             "type": "diffuse",
-            "bitmap": "texture\\earthmap.jpg"
+            "bitmap": "textures\\earthmap.jpg"
         }
     ],
     "shape": [

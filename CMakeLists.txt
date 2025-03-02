@@ -91,7 +91,8 @@ list(SORT sources)
 source_group(Headers FILES ${headers})
 source_group(Sources FILES ${sources})
 
-#add_subdirectory(src/ImGui)
+add_subdirectory(external)
+set(LIBRARIES ${LIBRARIES} ImGui)
 #add_subdirectory(stream_compaction)  # TODO: uncomment if using your stream compaction
 
 cuda_add_executable(${CMAKE_PROJECT_NAME} ${sources} ${headers})

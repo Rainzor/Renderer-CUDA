@@ -18,6 +18,8 @@ CUDA Path Tracer
 - **Physically Based Rendering**:
   - Diffuse (Lambertian)
   - Fresnel Reflection
+- **Denoiser**
+
 
 ## Screenshots
 
@@ -32,7 +34,7 @@ CUDA Path Tracer
 - **GLM**
 - **ImGui**
 - **Stb Image**
-- **Tinygltf**
+- **Tinygltf Loader**
 - **Tinyobj loader**
 - **nlohmann-json**
 

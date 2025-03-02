@@ -6,10 +6,10 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
-#include <stb_image.h>
+
 #include "glm/glm.hpp"
 
-#include "sceneStructs.h"
+#include "common.h"
 #include "utils/utilities.h"
 #include "utils/tiny_obj_loader.h"
 
@@ -26,7 +26,6 @@ class Scene {
 private:
 	string workdir;
     std::ifstream fp_in;
-    int loadBitmap(const string& bitmapPath);
     int loadMaterial(const json& materialData);
     int loadGeom(const json& geomData);
     int loadObj(const string& obj_file,const Transform& transform, bool usemtl = false);
@@ -68,10 +67,11 @@ public:
     std::vector<Geom> geoms;
 	BVH scene_bvh;
     std::vector<Material> materials;
-    std::vector<Bitmap> bitmaps;
+    std::vector<Texture> textures;
 	std::vector<TriangleMesh> trimeshes;
     std::vector<BVH> tri_bvhs;
 	std::vector<Light> lights;
+	Texture envmap;
 	float lights_total_weight;
     RenderState state;
 };
