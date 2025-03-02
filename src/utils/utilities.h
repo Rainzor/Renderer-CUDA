@@ -22,12 +22,7 @@ public:
     GuiDataContainer() : TracedDepth(0) {}
     int TracedDepth;
 };
-
-
-
-
-
-
+ 
 namespace utilityCore {
      /**
      * Handy-dandy hash function that provides seeds for random number generation.

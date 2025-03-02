@@ -141,6 +141,8 @@ private:
 
 	CUDAMaterial* dev_materials = NULL;
 	CUDAGeom* dev_geoms = NULL;
+	std::vector<CUDAGeom> hst_geoms;
+
 	BVHNode* dev_world_bvh = NULL;
 	Light* dev_lights = NULL;
     cudaTextureObject_t* hst_texs = NULL;
@@ -222,7 +224,6 @@ public:
 
 		if(!scene->geoms.empty()){
 			cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(CUDAGeom));
-			std::vector<CUDAGeom> hst_geoms;
 			cudaMalloc(&dev_lights, scene->lights.size() * sizeof(Light));
 
 			for (int i = 0; i < scene->geoms.size(); i++) {
@@ -253,7 +254,6 @@ public:
 				hst_geoms.push_back(newGeom);
 			}
 			cudaMemcpy(dev_geoms, hst_geoms.data(), scene->geoms.size() * sizeof(CUDAGeom), cudaMemcpyHostToDevice);
-			hst_geoms.clear();
 		}else{
 			dev_geoms = NULL;
 		}
@@ -363,14 +363,18 @@ public:
 			delete[] hst_texs;
 		}
 
+		if (dev_envmap != NULL) {
+			cudaDestroyTextureObject(dev_envmap);
+		}
+
 		cudaFree(dev_lights);
 		cudaFree(dev_materials);
 
 		if (dev_geoms != NULL) {
 			for(int i = 0; i < hst_scene->geoms.size(); i++){
 				if(hst_scene->geoms[i].type == Primitive::TRIANGLE){
-					cudaFree(dev_geoms[i].dev_triangles);
-					cudaFree(dev_geoms[i].dev_bvh_nodes);
+					cudaFree(hst_geoms[i].dev_triangles);
+					cudaFree(hst_geoms[i].dev_bvh_nodes);
 				}
 			}
 			cudaFree(dev_geoms);

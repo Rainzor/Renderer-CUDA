@@ -91,11 +91,11 @@ int main(int argc, char** argv) {
 }
 
 void freeData() {
-	delete guiData;
 	integrator->resourceFree();
 	integrator->pathtraceFree();
 	delete integrator;
 	delete scene;
+	delete guiData;
 }
 
 void saveImage() {
@@ -106,8 +106,12 @@ void saveImage() {
 	for (int x = 0; x < width; x++) {
 		for (int y = 0; y < height; y++) {
 			int index = x + (y * width);
-			glm::vec3 pix = renderState->image[index];
-			img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
+			glm::vec3 pix = renderState->image[index] / samples;
+			// HDR tonemapping
+			pix = utilityCore::tone_mapping(pix);
+			// Gamma correction
+			pix = glm::pow(pix, glm::vec3(1 / 2.2f));
+			img.setPixel(width - 1 - x, y, glm::vec3(pix) );
 		}
 	}
 
