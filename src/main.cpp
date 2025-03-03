@@ -108,7 +108,7 @@ void saveImage() {
 			int index = x + (y * width);
 			glm::vec3 pix = renderState->image[index] / samples;
 			// HDR tonemapping
-			pix = utilityCore::tone_mapping(pix);
+			pix = tone_mapping(pix);
 			// Gamma correction
 			pix = glm::pow(pix, glm::vec3(1 / 2.2f));
 			img.setPixel(width - 1 - x, y, glm::vec3(pix) );

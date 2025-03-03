@@ -52,7 +52,7 @@ Scene::Scene(std::string filename) {
 		default_m.diffuse = glm::vec3(1.0f);
 		default_m.texture_id = -1;
 		default_m.emittance = 0.0f;
-		default_m.indexOfRefraction = 1.0f;
+		default_m.ior = 1.0f;
 		materials.push_back(default_m);
 
         for (const auto& material : sceneData["bsdf"]) {
@@ -169,7 +169,7 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
         newMaterial.emittance = materialData["emission"];
     }
     if (materialData.contains("ior")) {
-        newMaterial.indexOfRefraction = materialData["indexOfRefraction"];
+        newMaterial.ior = materialData["ior"];
     }
 
     materials.push_back(newMaterial);
@@ -193,7 +193,7 @@ int Scene::loadGeom(const json& shapeData) {
 	}
 
 
-	newGeom.transform.transform = utilityCore::buildTransformationMatrix(newGeom.transform.translation, newGeom.transform.rotation, newGeom.transform.scale);
+	newGeom.transform.transform = buildTransformationMatrix(newGeom.transform.translation, newGeom.transform.rotation, newGeom.transform.scale);
 	newGeom.transform.inverseTransform = glm::inverse(newGeom.transform.transform);
 	newGeom.transform.invTranspose = glm::inverseTranspose(newGeom.transform.transform);
 
@@ -298,7 +298,7 @@ int Scene::loadObj(const string& obj_path,const Transform& trans, bool usemtl) {
 		Material newMaterial;
 		tinyobj::material_t &mat = to_materials[i];
 		newMaterial.type = MaterialType::DIFFUSE;
-		newMaterial.indexOfRefraction = mat.ior;
+		newMaterial.ior = mat.ior;
 		newMaterial.diffuse = glm::vec3(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2]);
         if (mat.diffuse_texname != "") {
 			fs::path bitmap_path = fs::path(base_dir) / mat.diffuse_texname;

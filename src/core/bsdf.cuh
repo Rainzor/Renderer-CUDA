@@ -4,6 +4,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
 #include "ray.h"
+#include "material.h"
+#include "Sampling.h"
+#include "KullaConty.h"
 
 // MIS balance heuristic
 __device__ float powerHeuristic(float f, float g, int nf=1, int ng=1) {
@@ -12,61 +15,6 @@ __device__ float powerHeuristic(float f, float g, int nf=1, int ng=1) {
     return (f * f) / (g * g + f * f);
 }
 
-/**
- * Computes a cosine-weighted random direction on a hemisphere surface.
- * Used for diffuse lighting.
- */
-__device__
-glm::vec3 calculateRandomDirectionOnHemisphere(
-        glm::vec3 normal, thrust::default_random_engine &rng) {
-    thrust::uniform_real_distribution<float> u01(0, 1);
-
-    float up = sqrt(u01(rng)); // cos(theta)
-    float over = sqrt(1 - up * up); // sin(theta)
-    float around = u01(rng) * TWO_PI;
-
-    // Find a direction that is not the normal based off of whether or not the
-    // normal's components are all equal to sqrt(1/3) or 
-    // whether or not at least one component is less than sqrt(1/3). Learned this trick from Peter Kutz.
-
-    glm::vec3 directionNotNormal;
-    if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
-        directionNotNormal = glm::vec3(1, 0, 0);
-    } else if (abs(normal.y) < SQRT_OF_ONE_THIRD) {
-        directionNotNormal = glm::vec3(0, 1, 0);
-    } else {
-        directionNotNormal = glm::vec3(0, 0, 1);
-    }
-
-    // Use not-normal direction to generate two perpendicular directions
-    glm::vec3 perpendicularDirection1 =
-        glm::normalize(glm::cross(normal, directionNotNormal));
-    glm::vec3 perpendicularDirection2 =
-        glm::normalize(glm::cross(normal, perpendicularDirection1));
-
-    return up * normal
-        + cos(around) * over * perpendicularDirection1
-        + sin(around) * over * perpendicularDirection2;
-}
-
-__device__
-glm::vec2 sampleUnitDiskConcentric(const glm::vec2& u){
-    glm::vec2 uOffset = 2.f * u - glm::vec2(1.f);
-    if (uOffset.x == 0 && uOffset.y == 0) {
-        return glm::vec2(0.f);
-    }
-
-    float theta, r;
-    if (std::abs(uOffset.x) > std::abs(uOffset.y)) {
-        r = uOffset.x;
-        theta = PI / 4.f * (uOffset.y / uOffset.x);
-    } else {
-        r = uOffset.y;
-        theta = PI / 2.f - PI / 4.f * (uOffset.x / uOffset.y);
-    }
-
-    return r * glm::vec2(std::cos(theta), std::sin(theta));
-}
 
 __device__ 
 glm::vec3 sample_albedo(const glm::vec3 diffuse, const cudaTextureObject_t* texObjs, int texture_id, const glm::vec2 uv) {
@@ -130,11 +78,19 @@ void scatterRay(
         path.last_pdf = 1.f;
 		path.from_specular = true;
     } else if (material->type == MaterialType::DIFFUSE){ // Lambertian
+		// Sample
         direct_i = calculateRandomDirectionOnHemisphere(record.surfaceNormal, rng);
 		abedo = sample_albedo(material->specular.diffuse, texObjs, material->specular.texture_id, record.uv);
         BSDF = abedo / PI;
+		// Evaluate
         path.last_pdf = glm::dot(direct_i, record.surfaceNormal) / PI;
 		path.from_specular = false;
+	}
+	else if (material->type == MaterialType::DIELECTRIC) { // Refraction
+
+		float eta = record.outside ? material->dielectric.ior : 1.f / material->dielectric.ior;
+		glm::vec3 normal = record.outside ? record.surfaceNormal : -record.surfaceNormal;
+        //float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_i.z, entering_material);
 	}
 	else if (material->type == MaterialType::LIGHT) {// No scattering
 		assert(false);

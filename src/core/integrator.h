@@ -11,7 +11,6 @@
 #include "scene.h"
 #include "utils/utilities.h"
 
-
 #define ERRORCHECK 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -127,6 +126,36 @@ public:
 		Transform transform;
 	};
 
+	struct LUTTexture {
+		cudaArray_t array;
+		cudaTextureObject_t texture;
+
+		void init(cudaArray_t data) {
+			array = data;
+			//CU_TR_FILTER_MODE_LINEAR, CU_TR_ADDRESS_MODE_CLAMP
+			cudaResourceDesc resDesc = {};
+			memset(&resDesc, 0, sizeof(resDesc));
+			resDesc.resType = cudaResourceTypeArray;
+			resDesc.res.array.array = array;
+			
+			cudaTextureDesc texDesc = {};
+			memset(&texDesc, 0, sizeof(texDesc));
+			texDesc.addressMode[0] = cudaAddressModeClamp;
+			texDesc.addressMode[1] = cudaAddressModeClamp;
+			texDesc.filterMode = cudaFilterModeLinear;
+			texDesc.readMode = cudaReadModeElementType;
+			texDesc.normalizedCoords = 1;
+
+			cudaCreateTextureObject(&texture, &resDesc, &texDesc, NULL);
+		}
+
+		void free() {
+			cudaDestroyTextureObject(texture);
+			cudaFreeArray(array);
+		}
+	};
+
+
 private:
 
 	Scene* hst_scene;
@@ -145,10 +174,18 @@ private:
 
 	BVHNode* dev_world_bvh = NULL;
 	Light* dev_lights = NULL;
-    cudaTextureObject_t* hst_texs = NULL;
+	
+	//CUDATexture* dev_textures = NULL;
     cudaTextureObject_t* dev_texs = NULL;
 
 	cudaTextureObject_t dev_envmap;
+
+	LUTTexture lut_dielectric_directional_albedo_enter;
+	LUTTexture lut_dielectric_directional_albedo_leave;
+	LUTTexture lut_dielectric_albedo_enter;
+	LUTTexture lut_dielectric_albedo_leave;
+	LUTTexture lut_conductor_directional_albedo;
+	LUTTexture lut_conductor_albedo;
 
 public:
 
@@ -206,7 +243,7 @@ public:
 					newMaterial.type = MaterialType::PLASTIC;
 				}
 				else if(scene->materials[i].type == MaterialType::DIELECTRIC){
-					newMaterial.dielectric.ior = scene->materials[i].indexOfRefraction;
+					newMaterial.dielectric.ior = scene->materials[i].ior;
 					newMaterial.type = MaterialType::DIELECTRIC;
 				}
 				else if(scene->materials[i].type == MaterialType::CONDUCTOR){
@@ -294,7 +331,37 @@ public:
 		}
 
 		if (!scene->textures.empty()) {
-			hst_texs = new cudaTextureObject_t[scene->textures.size()];
+			//cudaMalloc(&dev_textures, scene->textures.size() * sizeof(CUDATexture));
+			//
+			//for (int i = 0; i < scene->textures.size(); i++) {
+			//	Texture& tex = scene->textures[i];
+			//	if (tex.pixelsf && tex.width > 0 && tex.height > 0) {
+			//		cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
+			//		cudaArray_t texArray;
+			//		cudaMallocArray(&texArray, &channelDesc, tex.width, tex.height);
+			//		cudaMemcpy2DToArray(texArray, 0, 0,
+			//			tex.pixels, tex.width * sizeof(uchar4),
+			//			tex.width * sizeof(uchar4), tex.height, cudaMemcpyHostToDevice);
+			//		cudaResourceDesc resDesc;
+			//		memset(&resDesc, 0, sizeof(resDesc));
+			//		resDesc.resType = cudaResourceTypeArray;
+			//		resDesc.res.array.array = texArray;
+			//		cudaTextureDesc texDesc;
+			//		memset(&texDesc, 0, sizeof(texDesc));
+			//		texDesc.addressMode[0] = cudaAddressModeWrap;
+			//		texDesc.addressMode[1] = cudaAddressModeWrap;
+			//		texDesc.filterMode = cudaFilterModeLinear;
+			//		texDesc.readMode = cudaReadModeElementType;
+			//		texDesc.normalizedCoords = 1;
+			//		CUDATexture newTex;
+			//		cudaCreateTextureObject(&newTex.tex, &resDesc, &texDesc, NULL);
+			//		newTex.array = texArray;
+			//		cudaMemcpy(&dev_textures[i], &newTex, sizeof(CUDATexture), cudaMemcpyHostToDevice);
+			//	}
+			//}
+
+
+			cudaTextureObject_t* hst_texs = new cudaTextureObject_t[scene->textures.size()];
 			for (int i = 0; i < scene->textures.size(); i++)
 			{
 				cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
@@ -320,13 +387,12 @@ public:
 				cudaCreateTextureObject(&hst_texs[i], &resDesc, &texDesc, NULL);
 			}
 
-
 			cudaMalloc(&dev_texs, scene->textures.size() * sizeof(cudaTextureObject_t));
 			cudaMemcpy(dev_texs, hst_texs, scene->textures.size() * sizeof(cudaTextureObject_t), cudaMemcpyHostToDevice);
+			delete[] hst_texs;
 		}
 		else {
 			dev_texs = NULL;
-			hst_texs = NULL;
 		}
 		checkCUDAError("resourceInit");
 	}
@@ -345,22 +411,18 @@ public:
 
 		int num_texs = hst_scene->textures.size();
 
-		if (dev_texs != NULL){
-			cudaFree(dev_texs);
-		}
-		if (hst_texs != NULL){
+		if (dev_texs != NULL) {
 			for (int i = 0; i < num_texs; i++)
 			{
-				cudaTextureObject_t texObj = hst_texs[i];
-				// Get the cudaArray from the texture object
+				cudaTextureObject_t texObj;
+				cudaMemcpy(&texObj, &dev_texs[i], sizeof(cudaTextureObject_t), cudaMemcpyDeviceToHost);
 				cudaResourceDesc resDesc;
 				cudaGetTextureObjectResourceDesc(&resDesc, texObj);
 				cudaArray_t array = resDesc.res.array.array;
-				// Destroy the texture object and free the cudaArray
-				cudaDestroyTextureObject(texObj);
 				cudaFreeArray(array);
+				cudaDestroyTextureObject(texObj);
 			}
-			delete[] hst_texs;
+			cudaFree(dev_texs);
 		}
 
 		if (dev_envmap != NULL) {

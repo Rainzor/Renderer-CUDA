@@ -1,7 +1,6 @@
 #include "texture.h"
 #include <iostream>
 
-using namespace utilityCore;
 bool Texture::load(const std::string & file_name, bool gamma) {
 
 	int w, h, n;
@@ -26,10 +25,10 @@ bool Texture::load(const std::string & file_name, bool gamma) {
 
 		pixels = new glm::u8vec4[w * h];
 		for (int i = 0; i < w * h; i++) {
-			unsigned char r = (unsigned char)(clamp(rgba[i].r * 255.f, 0, 255.f));
-			unsigned char g = (unsigned char)(clamp(rgba[i].g * 255.f, 0, 255.f));
-			unsigned char b = (unsigned char)(clamp(rgba[i].b * 255.f, 0, 255.f));
-			unsigned char a = (unsigned char)(clamp(rgba[i].a * 255.f, 0, 255.f));
+			unsigned char r = (unsigned char)(clamp(rgba[i].r * 255.f, 0.f, 255.f));
+			unsigned char g = (unsigned char)(clamp(rgba[i].g * 255.f, 0.f, 255.f));
+			unsigned char b = (unsigned char)(clamp(rgba[i].b * 255.f, 0.f, 255.f));
+			unsigned char a = (unsigned char)(clamp(rgba[i].a * 255.f, 0.f, 255.f));
 			pixels[i] = glm::u8vec4(r, g, b, a);
 		}
 		delete[] rgba;

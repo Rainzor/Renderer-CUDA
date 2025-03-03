@@ -239,7 +239,7 @@ void mainLoop() {
 
 		runCuda();
 
-		string title = "CIS565 Path Tracer | " + utilityCore::convertIntToString(iteration) + " Iterations";
+		string title = "CIS565 Path Tracer | " + convertIntToString(iteration) + " Iterations";
 		glfwSetWindowTitle(window, title.c_str());
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);// Bind the PBO so we can map it to CUDA
 		glBindTexture(GL_TEXTURE_2D, displayImage); // Bind the texture we're going to update

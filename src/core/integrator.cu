@@ -9,11 +9,6 @@
 #include "bsdf.cuh"
 #include "intersections.cuh"
 
-__device__
-thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth) {
-	int h = utilityCore::utilhash((1 << 31) | (depth << 22) | iter) ^ utilityCore::utilhash(index);
-	return thrust::default_random_engine(h);
-}
 
 // Stream Compaction Valid Path
 struct is_valid{
@@ -255,11 +250,11 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 		int index = x + (y * resolution.x);
 		glm::vec3 pix = image[index] / (float)spp;
 		// HDR tonemapping
-		pix = utilityCore::tone_mapping(pix);
+		pix = tone_mapping(pix);
 		// Gamma correction
-		pix.x = utilityCore::linear_to_gamma(pix.x);
-		pix.y = utilityCore::linear_to_gamma(pix.y);
-		pix.z = utilityCore::linear_to_gamma(pix.z);
+		pix.x = linear_to_gamma(pix.x);
+		pix.y = linear_to_gamma(pix.y);
+		pix.z = linear_to_gamma(pix.z);
 
 		glm::ivec3 color;
 		color.x = glm::clamp((int)(pix.x * 255.0), 0, 255);
@@ -280,16 +275,16 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
 
 	// 2D block for generating ray from camera
-	const dim3 blockSize2d(8, 8);
+	//const dim3 blockSize2d(8, 8);
 	const dim3 blocksPerGrid2d(
-		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
-		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+		(cam.resolution.x + BLOCK_SIZE2D.x - 1) / BLOCK_SIZE2D.x,
+		(cam.resolution.y + BLOCK_SIZE2D.y - 1) / BLOCK_SIZE2D.y);
 
 	// 1D block for path tracing
-	const int blockSize1d = 128;
+	//const int blockSize1d = 128;
 
 	// --- 1. Generating Camera Rays ---
-	generateRayFromCamera << <blocksPerGrid2d, blockSize2d >> > (cam, iter, traceDepth, dev_paths);
+	generateRayFromCamera << <blocksPerGrid2d, BLOCK_SIZE2D >> > (cam, iter, traceDepth, dev_paths);
 
 	int depth = 0;
 	CUDATracer* dev_path_end = dev_paths + pixelcount;
@@ -306,8 +301,8 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 		cudaMemset(dev_shadows, 0, pixelcount * sizeof(CUDAShadowRay));
 		// --- 2. PathSegment Intersection Stage ---
 		// path tracing to get the intersections with the scene
-		dim3 numblocksPathSegmentTracing = (num_paths + blockSize1d - 1) / blockSize1d;
-		computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (
+		dim3 numblocksPathSegmentTracing = (num_paths + BLOCK_SIZE1D - 1) / BLOCK_SIZE1D;
+		computeIntersections << <numblocksPathSegmentTracing, BLOCK_SIZE1D >> > (
 			num_paths,
 			dev_paths,
 			dev_geoms,
@@ -324,7 +319,7 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 		// materials you have in the scenefile.
 
 		 //thrust::sort_by_key(thrust::device, dev_records, dev_records + num_paths, dev_paths, compareIntersection());
-		shadeMaterialMIS << <numblocksPathSegmentTracing, blockSize1d >> > (
+		shadeMaterialMIS << <numblocksPathSegmentTracing, BLOCK_SIZE1D >> > (
 			depth,
 			iter,
 			num_paths,
@@ -342,7 +337,7 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 		// --- 4. Shadow Ray Intersection Stage ---
 		// path tracing to get the intersections with the scene
 #if USE_NEE	
-		shadowIntersection << <numblocksPathSegmentTracing, blockSize1d >> > (
+		shadowIntersection << <numblocksPathSegmentTracing, BLOCK_SIZE1D >> > (
 			num_paths,
 			dev_paths,
 			dev_shadows,
@@ -365,12 +360,12 @@ void Integrator::render(uchar4* pbo, int frame, int iter, GuiDataContainer* guiD
 
 	// --- 5. PathSegment Final Gather Stage ---
 	// Assemble this iteration and apply it to the image
-	dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
-	finalGather << <numBlocksPixels, blockSize1d >> > (pixelcount, dev_image, dev_paths);
+	dim3 numBlocksPixels = (pixelcount + BLOCK_SIZE1D - 1) / BLOCK_SIZE1D;
+	finalGather << <numBlocksPixels, BLOCK_SIZE1D >> > (pixelcount, dev_image, dev_paths);
 
 	//-------------------------------------------------------------------------
 	// Send results to OpenGL buffer for rendering
-	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
+	sendImageToPBO << <blocksPerGrid2d, BLOCK_SIZE2D >> > (pbo, cam.resolution, iter, dev_image);
 
 	// Retrieve image from GPU
 	cudaMemcpy(hst_scene->state.image.data(), dev_image,
