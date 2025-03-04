@@ -188,8 +188,11 @@ private:
 	LUTTexture lut_conductor_albedo;
 
 public:
-	void lutTexInit();
-	void lutTexFree();
+	void lutDielectricTexInit();
+	void lutDielectricTexFree();
+	void lutConductorTetInit();
+	void lutConductorTexFree();
+
 	void pathtraceInit(Scene* scene) {
 		if(scene == NULL){
 			return;
@@ -365,7 +368,8 @@ public:
 		else {
 			dev_texs = NULL;
 		}
-		lutTexInit();
+		lutDielectricTexInit();
+		lutConductorTetInit();
 		checkCUDAError("resourceInit");
 	}
 
@@ -378,9 +382,11 @@ public:
 	}
 
 	void resourceFree() {
-		lutTexFree();
 		if (hst_scene == NULL)
 		return;
+
+		lutDielectricTexFree();
+		lutConductorTexFree();
 
 		int num_texs = hst_scene->textures.size();
 

@@ -91,8 +91,8 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, C
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA) return;
 
-	int i = (thread_index)                                                           % LUT_DIELECTRIC_DIM_IOR;
-	int r = (thread_index / (LUT_DIELECTRIC_DIM_IOR))                                % LUT_DIELECTRIC_DIM_ROUGHNESS;
+	int i = (thread_index) % LUT_DIELECTRIC_DIM_IOR;
+	int r = (thread_index / (LUT_DIELECTRIC_DIM_IOR)) % LUT_DIELECTRIC_DIM_ROUGHNESS;
 	int c = (thread_index / (LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS)) % LUT_DIELECTRIC_DIM_COS_THETA;
 
 	float ior = lut_dielectric_map_ior(i);
@@ -162,7 +162,7 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, C
 	//surf3Dwrite(avg, lut_directional_albedo, i * sizeof(float), r, c);
 }
 
-extern "C" __global__ void kernel_average_dielectric(const CUDASurface<float>& lut_directional_albedo, CUDASurface<float> lut_albedo) {
+extern "C" __global__ void kernel_average_dielectric(const CUDASurface<float> lut_directional_albedo, CUDASurface<float> lut_albedo) {
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS) return;
 
