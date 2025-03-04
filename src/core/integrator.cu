@@ -10,6 +10,85 @@
 #include "intersections.cuh"
 
 
+__global__ kernel_write_to_img(float* img) {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	if (x >= LUT_CONDUCTOR_DIM_ROUGHNESS || y >= LUT_CONDUCTOR_DIM_COS_THETA)
+		return;
+	float roughness = (float)x / (LUT_CONDUCTOR_DIM_ROUGHNESS - 1);
+	float cos_theta = (float)y / (LUT_CONDUCTOR_DIM_COS_THETA - 1);
+	float albedo = conductor_directional_albedo(roughness, cos_theta);
+	img[y * LUT_CONDUCTOR_DIM_ROUGHNESS + x] = albedo;
+}
+
+// TODO: Testing......
+void Integrator::lutTexInit() {
+
+	int thread_num = LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA;
+	dim3 block_num = (thread_num + BLOCK_SIZE1D - 1) / BLOCK_SIZE1D;
+
+	float* dev_lut_directional_albedo;
+	cudaMalloc(&dev_lut_directional_albedo, thread_num * sizeof(float));
+
+	kernel_integrate_conductor << <block_num, BLOCK_SIZE1D >> > (dev_lut_directional_albedo);
+
+	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
+	cudaArray* cuArray;
+	cudaMallocArray(&cuArray, &channelDesc, LUT_CONDUCTOR_DIM_COS_THETA, LUT_CONDUCTOR_DIM_ROUGHNESS);
+	cudaMemcpyToArray(cuArray, 0, 0, dev_lut_directional_albedo, thread_num * sizeof(float), cudaMemcpyDeviceToDevice);
+	cudaFree(dev_lut_directional_albedo);
+
+
+	cudaResourceDesc resDesc;
+	memset(&resDesc, 0, sizeof(resDesc));
+	resDesc.resType = cudaResourceTypeArray;
+	resDesc.res.array.array = cuArray;
+
+	cudaTextureDesc texDesc;
+	memset(&texDesc, 0, sizeof(texDesc));
+	texDesc.readMode = cudaReadModeElementType;
+	texDesc.normalizedCoords = 1;
+
+	cudaTextureObject_t lut_cda_texture;
+
+	cudaCreateTextureObject(&lut_cda_texture, &resDesc, &texDesc, NULL);
+
+	cudaMemcpyToSymbol(global_lut_conductor_directional_albedo.texture, &lut_cda_texture, sizeof(cudaTextureObject_t));
+
+	float* dev_cda_img;
+	cudaMalloc(&dev_cda_img, LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA * sizeof(float));
+	kernel_write_to_img << <block_num, BLOCK_SIZE1D >> > (dev_cda_img);
+
+	float* hst_cda_img = new float[LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA];
+	cudaMemcpy(hst_cda_img, dev_cda_img, LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA * sizeof(float), cudaMemcpyDeviceToHost);
+
+	cudaFree(dev_cda_img);
+
+	unsigned char* hst_cda_img_uchar = new unsigned char[LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA];
+	for (int i = 0; i < LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA; i++) {
+		hst_cda_img_uchar[i] = (unsigned char)(hst_cda_img[i] * 255);
+	}
+
+
+
+
+
+	cudaFreeArray(cuArray);
+	cudaDestroyTextureObject(lut_cda_texture);
+
+
+}
+
+void Integrator::lutTexFree() {
+	lut_dielectric_directional_albedo_enter.free();
+}
+
+
+
+
+
+
+
 // Stream Compaction Valid Path
 struct is_valid{
 	__device__

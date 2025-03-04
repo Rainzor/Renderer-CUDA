@@ -188,7 +188,8 @@ private:
 	LUTTexture lut_conductor_albedo;
 
 public:
-
+	void lutTexInit();
+	void lutTexFree();
 	void pathtraceInit(Scene* scene) {
 		if(scene == NULL){
 			return;
@@ -331,36 +332,6 @@ public:
 		}
 
 		if (!scene->textures.empty()) {
-			//cudaMalloc(&dev_textures, scene->textures.size() * sizeof(CUDATexture));
-			//
-			//for (int i = 0; i < scene->textures.size(); i++) {
-			//	Texture& tex = scene->textures[i];
-			//	if (tex.pixelsf && tex.width > 0 && tex.height > 0) {
-			//		cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
-			//		cudaArray_t texArray;
-			//		cudaMallocArray(&texArray, &channelDesc, tex.width, tex.height);
-			//		cudaMemcpy2DToArray(texArray, 0, 0,
-			//			tex.pixels, tex.width * sizeof(uchar4),
-			//			tex.width * sizeof(uchar4), tex.height, cudaMemcpyHostToDevice);
-			//		cudaResourceDesc resDesc;
-			//		memset(&resDesc, 0, sizeof(resDesc));
-			//		resDesc.resType = cudaResourceTypeArray;
-			//		resDesc.res.array.array = texArray;
-			//		cudaTextureDesc texDesc;
-			//		memset(&texDesc, 0, sizeof(texDesc));
-			//		texDesc.addressMode[0] = cudaAddressModeWrap;
-			//		texDesc.addressMode[1] = cudaAddressModeWrap;
-			//		texDesc.filterMode = cudaFilterModeLinear;
-			//		texDesc.readMode = cudaReadModeElementType;
-			//		texDesc.normalizedCoords = 1;
-			//		CUDATexture newTex;
-			//		cudaCreateTextureObject(&newTex.tex, &resDesc, &texDesc, NULL);
-			//		newTex.array = texArray;
-			//		cudaMemcpy(&dev_textures[i], &newTex, sizeof(CUDATexture), cudaMemcpyHostToDevice);
-			//	}
-			//}
-
-
 			cudaTextureObject_t* hst_texs = new cudaTextureObject_t[scene->textures.size()];
 			for (int i = 0; i < scene->textures.size(); i++)
 			{
@@ -394,6 +365,7 @@ public:
 		else {
 			dev_texs = NULL;
 		}
+		lutTexInit();
 		checkCUDAError("resourceInit");
 	}
 
@@ -406,6 +378,7 @@ public:
 	}
 
 	void resourceFree() {
+		lutTexFree();
 		if (hst_scene == NULL)
 		return;
 

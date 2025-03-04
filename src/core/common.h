@@ -1,5 +1,5 @@
 #pragma once
-
+#include <cuda_runtime.h>
 #include "glm/glm.hpp"
 #include "material.h"
 #include "shape.h"
@@ -8,7 +8,6 @@
 #include "ray.h"
 #include "camera.h"
 #include "texture.h"
-
 
 
 #define BLOCK_SIZE1D 64
@@ -27,4 +26,3 @@
 
 #define LUT_CONDUCTOR_DIM_ROUGHNESS 32
 #define LUT_CONDUCTOR_DIM_COS_THETA 32
-

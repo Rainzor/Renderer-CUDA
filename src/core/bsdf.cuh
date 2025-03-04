@@ -8,6 +8,7 @@
 #include "Sampling.h"
 #include "KullaConty.h"
 
+
 // MIS balance heuristic
 __device__ float powerHeuristic(float f, float g, int nf=1, int ng=1) {
     f = nf * f;

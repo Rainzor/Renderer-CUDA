@@ -21,7 +21,6 @@ struct Texture {
 template<typename T>
 struct CUDATexture {
 	cudaTextureObject_t texture;
-	cudaArray_t array;
 
 	__device__ inline T get(float s) const {
 		return tex1D<T>(texture, s);
@@ -48,6 +47,20 @@ struct CUDATexture {
 template<typename T>
 struct CUDASurface {
 	cudaSurfaceObject_t surface;
+
+	void init(cudaArray_t data) {
+		cudaResourceDesc resDesc = {};
+		memset(&resDesc, 0, sizeof(resDesc));
+		resDesc.resType = cudaResourceTypeArray;
+		resDesc.res.array.array = data;
+		cudaSurfaceObject_t surface;
+		cudaCreateSurfaceObject(&surface, &resDesc);
+		this->surface = surface;
+	}
+
+	void free() {
+		cudaDestroySurfaceObject(surface);
+	}	
 
 	__device__ inline T get(int x, int y) const {
 		T value;

@@ -1,16 +1,16 @@
 #pragma once
-#include "common.h"
-#include "utils/utilities.h"
 #include <device_launch_parameters.h>
+#include "common.h"
+#include "texture.h"
+#include "utils/utilities.h"
 #include "Sampling.h"
 
-__device__ CUDATexture<float> lut_dielectric_directional_albedo_enter;
-__device__ CUDATexture<float> lut_dielectric_directional_albedo_leave;
-__device__ CUDATexture<float> lut_dielectric_albedo_enter;
-__device__ CUDATexture<float> lut_dielectric_albedo_leave;
-
-__device__ CUDATexture<float> lut_conductor_directional_albedo;
-__device__ CUDATexture<float> lut_conductor_albedo;
+__device__ CUDATexture<float> global_lut_dielectric_directional_albedo_enter;
+__device__ CUDATexture<float> global_lut_dielectric_directional_albedo_leave;
+__device__ CUDATexture<float> global_lut_dielectric_albedo_enter;
+__device__ CUDATexture<float> global_lut_dielectric_albedo_leave;
+__device__ CUDATexture<float> global_lut_conductor_directional_albedo;
+__device__ CUDATexture<float> global_lut_conductor_albedo;
 
 __device__ inline glm::vec3 fresnel_multiscatter(glm::vec3 F_avg, float E_avg) {
 	return F_avg*F_avg * E_avg / (glm::vec3(1.0f) - F_avg * (1.0f - E_avg));
@@ -21,8 +21,8 @@ __device__ inline float dielectric_directional_albedo(float ior, float linear_ro
 	cos_theta = fabsf(cos_theta);
 
 	return (entering_material ?
-		lut_dielectric_directional_albedo_enter :
-		lut_dielectric_directional_albedo_leave
+		global_lut_dielectric_directional_albedo_enter :
+		global_lut_dielectric_directional_albedo_leave
 	).get(ior, linear_roughness, cos_theta);
 	//return 0.0f;
 }
@@ -31,8 +31,8 @@ __device__ inline float dielectric_albedo(float ior, float linear_roughness, boo
 	ior = remap(ior, LUT_DIELECTRIC_MIN_IOR, LUT_DIELECTRIC_MAX_IOR, 0.0f, 1.0f);
 
 	return (entering_material ?
-		lut_dielectric_albedo_enter :
-		lut_dielectric_albedo_leave
+		global_lut_dielectric_albedo_enter :
+		global_lut_dielectric_albedo_leave
 	).get(ior, linear_roughness);
 	//return 0.0f;
 }
@@ -40,12 +40,12 @@ __device__ inline float dielectric_albedo(float ior, float linear_roughness, boo
 __device__ inline float conductor_directional_albedo(float linear_roughness, float cos_theta) {
 	cos_theta = fabsf(cos_theta);
 
-	return lut_conductor_directional_albedo.get(linear_roughness, cos_theta);
+	return global_lut_conductor_directional_albedo.get(linear_roughness, cos_theta);
 	//return 0.0f;
 }
 
 __device__ inline float conductor_albedo(float linear_roughness) {
-	return lut_conductor_albedo.get(linear_roughness);
+	return global_lut_conductor_albedo.get(linear_roughness);
 	//return 0.0f;
 }
 
@@ -195,11 +195,12 @@ __device__ inline float lut_conductor_map_cos_theta(int index_cos_theta) {
 	return (float(index_cos_theta) + 0.5f) / float(LUT_CONDUCTOR_DIM_COS_THETA);
 }
 
-extern "C" __global__ void kernel_integrate_conductor(float * lut_directional_albedo) {
+
+extern "C" __global__ void kernel_integrate_conductor(float* lut_directional_albedo) {
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA) return;
 
-	int r = (thread_index)                               % LUT_CONDUCTOR_DIM_ROUGHNESS;
+	int r = (thread_index) % LUT_CONDUCTOR_DIM_ROUGHNESS;
 	int c = (thread_index / LUT_CONDUCTOR_DIM_ROUGHNESS) % LUT_CONDUCTOR_DIM_COS_THETA;
 
 	float linear_roughness = lut_conductor_map_roughness(r);
@@ -222,7 +223,7 @@ extern "C" __global__ void kernel_integrate_conductor(float * lut_directional_al
 
 		if (dot(omega_o, omega_m) <= 0.0f || omega_o.z <= 0.0f) return 0.0f;
 
-		float D  = ggx_D (omega_m, alpha_x, alpha_y);
+		float D = ggx_D(omega_m, alpha_x, alpha_y);
 		float G1 = ggx_G1(omega_i, alpha_x, alpha_y);
 		float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
@@ -230,7 +231,7 @@ extern "C" __global__ void kernel_integrate_conductor(float * lut_directional_al
 
 		float pdf = G1 * D / (4.0f * omega_i.z);
 		return pdf > 0.f ? weight : 0.0f;
-	};
+		};
 
 	float avg = 0.0f;
 	constexpr int NUM_SAMPLES = 100000;
@@ -243,7 +244,7 @@ extern "C" __global__ void kernel_integrate_conductor(float * lut_directional_al
 	lut_directional_albedo[thread_index] = avg;
 }
 
-extern "C" __global__ void kernel_average_conductor(const float * lut_directional_albedo, float * lut_albedo) {
+extern "C" __global__ void kernel_average_conductor(const float* lut_directional_albedo, float* lut_albedo) {
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_CONDUCTOR_DIM_ROUGHNESS) return;
 
@@ -259,15 +260,4 @@ extern "C" __global__ void kernel_average_conductor(const float * lut_directiona
 	}
 
 	lut_albedo[thread_index] = 2.0f * avg;
-}
-
-void kulla_conty_init() {
-	// Dielectric
-	CUDASurface<float> dielectric_directional_albedo_enter;
-	CUDASurface<float> dielectric_directional_albedo_leave;
-	CUDASurface<float> dielectric_albedo_enter;
-	CUDASurface<float> dielectric_albedo_leave;
-
-	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
-	cudaMallocArray(&dielectric_directional_albedo_enter.a, &channelDesc, LUT_DIELECTRIC_DIM_IOR, LUT_DIELECTRIC_DIM_ROUGHNESS, LUT_DIELECTRIC_DIM_COS_THETA);
 }
