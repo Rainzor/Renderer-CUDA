@@ -253,7 +253,12 @@ public:
 				else if(scene->materials[i].type == MaterialType::CONDUCTOR){
 					newMaterial.conductor.eta = scene->materials[i].eta;
 					newMaterial.conductor.k = scene->materials[i].k;
+					newMaterial.conductor.linear_roughness = scene->materials[i].roughness;
 					newMaterial.type = MaterialType::CONDUCTOR;
+				}
+				else {
+					cerr << "Unknown material type!" << endl;
+					throw;
 				}
 				hst_materials.push_back(newMaterial);
 			}
@@ -265,7 +270,11 @@ public:
 
 		if(!scene->geoms.empty()){
 			cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(CUDAGeom));
-			cudaMalloc(&dev_lights, scene->lights.size() * sizeof(Light));
+			if (!scene->lights.empty())
+				cudaMalloc(&dev_lights, scene->lights.size() * sizeof(Light));
+			else {
+				dev_lights = NULL;
+			}
 
 			for (int i = 0; i < scene->geoms.size(); i++) {
 				CUDAGeom newGeom;
@@ -407,8 +416,9 @@ public:
 		if (dev_envmap != NULL) {
 			cudaDestroyTextureObject(dev_envmap);
 		}
-
-		cudaFree(dev_lights);
+		if (dev_lights != NULL) {
+			cudaFree(dev_lights);
+		}
 		cudaFree(dev_materials);
 
 		if (dev_geoms != NULL) {

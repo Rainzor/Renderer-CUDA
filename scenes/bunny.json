@@ -3,8 +3,8 @@
     "sensor": {
         "type": "perspective",
         "fovy": 45,
-        "eye": [0, 5.5, 6],
-        "lookat": [0, 5.5, 0],
+        "eye": [0, 5, 5],
+        "lookat": [0, 5, 0],
         "up": [0, 1, 0],
         "focal": 0,
         "aperture": 0,
@@ -17,15 +17,30 @@
         "type": "path",
         "maxdepth": 32
     },
+    "emitter": {
+        "type": "envmap",
+        "filename": "textures/envmap.hdr",
+        "scale": 1
+    },
     "bsdf":[
         {
             "type": "light",
             "rgb": [1, 1, 1],
-            "emission": 10
+            "emission": 10,
+            "id": "light"
         },
         {
             "type": "specular",
-            "rgb": [0.85, 0.85, 0.85]
+            "rgb": [0.85, 0.85, 0.85],
+            "alpha": 0.5,
+            "id": "mirror"
+        },
+        {
+            "type": "plastic",
+            "diffuse": [0.80, 0.80, 0.80],
+            "bitmap": "textures/bunny.jpg",
+            "alpha": 0.2,
+            "id": "bunny"
         }
     ],
     "shape": [
@@ -33,7 +48,7 @@
             "type": "obj",
             "filename": "models/area_light.obj",
             "usemtl": false,
-            "bsdf": 0,
+            "bsdf": "light",
             "transform": {
                 "translate": [-0.5, 0, 1.5],
                 "rotate": [0, 0, 0],
@@ -43,6 +58,17 @@
         {
             "type": "obj",
             "filename": "models/bunny.obj",
+            "usemtl": false,
+            "bsdf": "bunny",
+            "transform": {
+                "translate": [0, 0, 0],
+                "rotate": [0, 0, 0],
+                "scale": [1, 1, 1]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/box.obj",
             "usemtl": true,
             "transform": {
                 "translate": [0, 0, 0],
@@ -54,13 +80,12 @@
             "type": "obj",
             "filename": "models/mirror.obj",
             "usemtl": false,
-            "bsdf": 1,
+            "bsdf": "mirror",
             "transform": {
                 "translate": [0, 0, 0],
                 "rotate": [0, 0, 0],
                 "scale": [1, 1, 1]
             }
         }
-
     ]
 }

@@ -26,6 +26,109 @@ glm::vec3 sample_albedo(const glm::vec3 diffuse, const cudaTextureObject_t* texO
     }
     return albedo;
 }
+
+__device__ bool plastic_sample(const MaterialPlastic& material, 
+                        const glm::vec3& albedo,
+                        const glm::vec3& omega_i,
+                        glm::vec3& omega_o,
+                        float& pdf,
+                        glm::vec3& throughput,
+                        thrust::default_random_engine& rng) {
+    thrust::uniform_real_distribution<float> u01(0, 1);
+    
+    float rand_fresnel = u01(rng);
+    float2 rand_bsdf = make_float2(u01(rng), u01(rng));
+
+    float F_i = fresnel_dielectric(omega_i.z, PLASTIC_ETA);
+
+    float alpha_x = roughness_to_alpha(material.linear_roughness);
+    float alpha_y = roughness_to_alpha(material.linear_roughness);
+
+    glm::vec3 omega_m;
+    
+    if(rand_fresnel < F_i) {
+        // Specular reflection
+        omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_bsdf.x, rand_bsdf.y);
+        omega_o = reflect_direction(omega_i, omega_m);
+    }else{
+        // Diffuse reflection
+        omega_o = sample_cosine_weighted_direction(rand_bsdf.x, rand_bsdf.y);
+        omega_m = glm::normalize(omega_i + omega_o);
+    }
+    if(omega_o.z <= 0.0f) return false;
+
+    // Specular component
+    const float3 omega_i3 = make_float3(omega_i.x, omega_i.y, omega_i.z);
+    const float3 omega_o3 = make_float3(omega_o.x, omega_o.y, omega_o.z);
+    const float3 omega_m3 = make_float3(omega_m.x, omega_m.y, omega_m.z);
+
+    float F = fresnel_dielectric(glm::dot(omega_i, omega_m), PLASTIC_ETA);
+    float D = ggx_D(omega_m3, alpha_x, alpha_y);
+    float G1 = ggx_G1(omega_i3, alpha_x, alpha_y);
+    float G2 = ggx_G2(omega_o3, omega_i3, omega_m3, alpha_x, alpha_y);
+
+    glm::vec3 brdf_specular(F * G2 * D / (4.0f * omega_i.z)); // BRDF times cos(theta_o)
+
+    // Diffuse component
+    float F_o = fresnel_dielectric(omega_o.z, PLASTIC_ETA);
+    float F_avg = average_fresnel(PLASTIC_IOR);
+    float internal_scattering_factor = 1.0f - (1.0f - F_avg) * square(PLASTIC_ETA);
+
+    glm::vec3 brdf_diffuse = PLASTIC_ETA * PLASTIC_ETA * (1.0f - F_i) * (1.0f - F_o) * albedo * ONE_OVER_PI / (1.0f - albedo * internal_scattering_factor) * omega_o.z;
+
+    float pdf_specular = G1 * D / (4.0f * omega_i.z);
+    float pdf_diffuse  = omega_o.z * ONE_OVER_PI;
+    pdf = lerp(pdf_diffuse, pdf_specular, F_i);
+
+    throughput *= (brdf_specular + brdf_diffuse) / pdf; // BRDF * cos(theta) / pdf
+
+    return pdf > 0.f;
+}
+
+__device__ bool plastic_eval(const MaterialPlastic& material,
+                            const glm::vec3& albedo,
+                            const glm::vec3& omega_i,
+                            const glm::vec3& omega_o, 
+                            float cos_theta_o, 
+                            glm::vec3& bsdf,
+                            float& pdf) 
+{
+    if (cos_theta_o <= 0.0f) return false;
+    glm::vec3 omega_m;
+    omega_m = glm::normalize(omega_i + omega_o);
+
+    float alpha_x = roughness_to_alpha(material.linear_roughness);
+    float alpha_y = roughness_to_alpha(material.linear_roughness);
+
+    const float3 omega_i3 = make_float3(omega_i.x, omega_i.y, omega_i.z);
+    const float3 omega_o3 = make_float3(omega_o.x, omega_o.y, omega_o.z);
+    const float3 omega_m3 = make_float3(omega_m.x, omega_m.y, omega_m.z);
+
+    // specular component
+    float F = fresnel_dielectric(dot(omega_i3, omega_m3), PLASTIC_ETA);
+    float D = ggx_D(omega_m3, alpha_x, alpha_y);
+    float G1 = ggx_G1(omega_i3, alpha_x, alpha_y);
+    float G2 = ggx_G2(omega_o3, omega_i3, omega_m3, alpha_x, alpha_y);
+
+    glm::vec3 brdf_specular(F * G2 * D / (4.0f * omega_i.z)); // BRDF times cos(theta_o)
+
+    // diffuse component
+    float F_o = fresnel_dielectric(omega_o.z, PLASTIC_ETA);
+    float F_i = fresnel_dielectric(omega_i.z, PLASTIC_ETA);
+    float F_avg = average_fresnel(PLASTIC_IOR);
+    float internal_scattering_factor = 1.0f - (1.0f - F_avg) * square(PLASTIC_ETA);
+
+    glm::vec3 brdf_diffuse = PLASTIC_ETA * PLASTIC_ETA * (1.0f - F_i) * (1.0f - F_o) * albedo * ONE_OVER_PI / (1.0f - albedo * internal_scattering_factor) * omega_o.z;
+
+    float pdf_specular = G1 * D / (4.0f * omega_i.z);
+    float pdf_diffuse  = omega_o.z * ONE_OVER_PI;
+
+    pdf = lerp(pdf_diffuse, pdf_specular, F_i);
+    bsdf = brdf_specular + brdf_diffuse; // BRDF * cos(theta)
+
+    return pdf > 0.f;
+}
+
 __device__ 
 bool dielectric_sample(const MaterialDielectric& material, 
                         const bool entering_material,
@@ -33,7 +136,8 @@ bool dielectric_sample(const MaterialDielectric& material,
                         glm::vec3& omega_o,
                         float& pdf, 
                         glm::vec3& throughput,
-    thrust::default_random_engine& rng) {
+    thrust::default_random_engine& rng) 
+{
     float eta = entering_material ? material.ior : 1.f / material.ior;
     float alpha_x = roughness_to_alpha(material.linear_roughness);
     float alpha_y = roughness_to_alpha(material.linear_roughness);
@@ -149,12 +253,13 @@ bool dielectric_sample(const MaterialDielectric& material,
 
 
 __device__ bool dielectric_eval(const MaterialDielectric& material,
-                    const bool entering_material,
-                    const glm::vec3& omega_i,
-                    const glm::vec3& omega_o, 
-                    float cos_theta_o, 
-                    glm::vec3& bsdf,
-                    float& pdf) {
+                                const bool entering_material,
+                                const glm::vec3& omega_i,
+                                const glm::vec3& omega_o, 
+                                float cos_theta_o, 
+                                glm::vec3& bsdf,
+                                float& pdf) 
+{
     bool reflected = omega_o.z >= 0.0f;
     float eta = entering_material ? material.ior : 1.f / material.ior;
 	glm::vec3 omega_m;
@@ -227,6 +332,127 @@ __device__ bool dielectric_eval(const MaterialDielectric& material,
 	return pdf > 0.f;
 }
 
+__device__ bool conductor_sample(const MaterialConductor& material,
+                                const glm::vec3& omega_i,
+                                glm::vec3& omega_o,
+                                float& pdf,
+                                glm::vec3& throughput,
+                                thrust::default_random_engine& rng)
+{
+    thrust::uniform_real_distribution<float> u01(0, 1);
+    float2 rand_bsdf_0 = make_float2(u01(rng), u01(rng));
+    float2 rand_bsdf_1 = make_float2(u01(rng), u01(rng));
+
+    float alpha_x = roughness_to_alpha(material.linear_roughness);
+    float alpha_y = roughness_to_alpha(material.linear_roughness);
+    
+    float E_i = conductor_directional_albedo(material.linear_roughness, omega_i.z);
+
+    glm::vec3 omega_m;
+
+    if (rand_bsdf_0.x < E_i) {
+        // Sample single scatter component
+        omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_bsdf_1.x, rand_bsdf_1.y);
+        omega_o = reflect_direction(-omega_i, omega_m);
+    }
+    else {
+        // Sample multiple scatter component
+        omega_o = sample_cosine_weighted_direction(rand_bsdf_1.x, rand_bsdf_1.y);
+        omega_m = glm::normalize(omega_i + omega_o);
+    }
+
+    float o_dot_m = glm::dot(omega_o, omega_m);
+    if(o_dot_m <= 0.0f || omega_o.z <= 0.0f) return false;
+
+    const float3 omega_i3 = make_float3(omega_i.x, omega_i.y, omega_i.z);
+    const float3 omega_o3 = make_float3(omega_o.x, omega_o.y, omega_o.z);
+    const float3 omega_m3 = make_float3(omega_m.x, omega_m.y, omega_m.z);
+    
+    // Single scatter component
+	float3 eta = make_float3(material.eta.x, material.eta.y, material.eta.z);
+    float3 k = make_float3(material.k.x, material.k.y, material.k.z);
+    float3 F = fresnel_conductor(o_dot_m, eta, k);
+    float D = ggx_D(omega_m3, alpha_x, alpha_y);
+    float G1 = ggx_G1(omega_i3, alpha_x, alpha_y);
+    float G2 = ggx_G2(omega_o3, omega_i3, omega_m3, alpha_x, alpha_y);
+
+    float3 bsdf_single = F * G2 * D / (4.0f * omega_i.z); // BRDF times cos(theta_o)
+    float pdf_single = G1 * D / (4.0f * omega_i.z);
+
+    // Multiple scatter component
+    float E_o = conductor_directional_albedo(material.linear_roughness, omega_o.z);
+    float E_avg = conductor_albedo(material.linear_roughness);
+
+    float3 F_avg = average_fresnel(eta, k);
+    float3 F_ms = fresnel_multiscatter(F_avg, E_avg);
+
+    float3 brdf_multi = F_ms * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg) * omega_o.z;
+    float  pdf_multi  = omega_o.z * ONE_OVER_PI;
+
+    pdf = lerp(pdf_multi, pdf_single, E_i);
+
+    throughput *= (glm::vec3(
+                        bsdf_single.x + brdf_multi.x,
+                        bsdf_single.y + brdf_multi.y,
+                        bsdf_single.z + brdf_multi.z
+                            )/ pdf);
+
+    return pdf > 0.f;
+}
+
+__device__ bool conductor_eval(const MaterialConductor&material,
+                                const glm::vec3& omega_i,
+                                const glm::vec3& omega_o,
+                                float cos_theta_o,
+                                glm::vec3& bsdf,
+                                float& pdf)
+{
+    if (cos_theta_o <= 0.0f) return false;
+
+    float3 omega_i3 = make_float3(omega_i.x, omega_i.y, omega_i.z);
+    float3 omega_o3 = make_float3(omega_o.x, omega_o.y, omega_o.z);
+    float3 omega_m3 = normalize(omega_i3 + omega_o3);
+    float o_dot_m = dot(omega_o3, omega_m3);
+    if(o_dot_m <= 0.0f) return false;
+
+    float alpha_x = roughness_to_alpha(material.linear_roughness);
+    float alpha_y = roughness_to_alpha(material.linear_roughness);
+
+    // Single scatter component
+
+    float3 eta = make_float3(material.eta.x, material.eta.y, material.eta.z);
+    float3 k = make_float3(material.k.x, material.k.y,
+        material.k.z);
+    float3 F = fresnel_conductor(o_dot_m, eta, k);
+    float D = ggx_D(omega_m3, alpha_x, alpha_y);
+    float G1 = ggx_G1(omega_i3, alpha_x, alpha_y);
+    float G2 = ggx_G2(omega_o3, omega_i3, omega_m3, alpha_x, alpha_y);
+
+    float3 bsdf_single = F * G2 * D / (4.0f * omega_i.z); // BRDF times cos(theta_o)
+    float pdf_single = G1 * D / (4.0f * omega_i.z);
+
+    // Multiple scatter component
+    float E_i = conductor_directional_albedo(material.linear_roughness, omega_i.z);
+    float E_o = conductor_directional_albedo(material.linear_roughness, omega_o.z);
+    float E_avg = conductor_albedo(material.linear_roughness);
+
+    float3 F_avg = average_fresnel(eta, k);
+    float3 F_ms = fresnel_multiscatter(F_avg, E_avg);
+
+    float3 brdf_multi = F_ms * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg) * omega_o.z;
+    float  pdf_multi  = omega_o.z * ONE_OVER_PI;
+
+    pdf = lerp(pdf_multi, pdf_single, E_i);
+
+    bsdf = glm::vec3(
+            bsdf_single.x + brdf_multi.x,
+            bsdf_single.y + brdf_multi.y,
+            bsdf_single.z + brdf_multi.z);
+
+    return pdf > 0.f;
+    
+}
+
 /**
  * Scatter a ray with some probabilities according to the material properties.
  * For example, a diffuse surface scatters in a cosine-weighted hemisphere.
@@ -258,8 +484,8 @@ void scatterRay(
         const Integrator::CUDAMaterial *material,
 	    const cudaTextureObject_t* texObjs,
         const Light* lights,
-	    const int& num_lights,
-        const float& total_lights_weight,
+	    const int num_lights,
+        const float total_lights_weight,
         thrust::default_random_engine& rng) {
     // ! Scatter the ray according to the type of material
     thrust::uniform_real_distribution<float> u01(0, 1);
@@ -267,7 +493,7 @@ void scatterRay(
     glm::vec3 throughput_in = path.throughput;
     glm::vec3 BSDF;
     glm::vec3 direct_out;
-	glm::vec3 abedo = glm::vec3(0.f);
+	glm::vec3 albedo = glm::vec3(0.f);
 
     glm::vec3 normal = record.outside ? record.surfaceNormal : -record.surfaceNormal;
 	glm::vec3 tangent, bitangent;
@@ -280,21 +506,39 @@ void scatterRay(
     if (material->type == MaterialType::SPECULAR){ // Perfect Reflection
         direct_out = reflect_direction(-ray_in.direction, record.surfaceNormal);
         float cosTheta = glm::dot(direct_out, record.surfaceNormal);
-        abedo = sample_albedo(material->diffuse.diffuse, texObjs, material->diffuse.texture_id, record.uv);
-        BSDF = abedo / cosTheta;
+        albedo = sample_albedo(material->specular.diffuse, texObjs, material->specular.texture_id, record.uv);
+        BSDF = albedo / cosTheta;
         path.last_pdf = 1.f;
 		path.from_specular = true;
     } 
     else if (material->type == MaterialType::DIFFUSE){ // Lambertian
 		// Sample
+        MaterialDiffuse diffuse;
+        diffuse.diffuse = material->diffuse.diffuse;
+        diffuse.texture_id = material->diffuse.texture_id;
+        
         direct_out = calculateRandomDirectionOnHemisphere(record.surfaceNormal, rng);
-		abedo = sample_albedo(material->specular.diffuse, texObjs, material->specular.texture_id, record.uv);
-        BSDF = abedo * ONE_OVER_PI;
+		albedo = sample_albedo(diffuse.diffuse, texObjs, diffuse.texture_id, record.uv);
+        BSDF = albedo * ONE_OVER_PI;
 		// Evaluate
 		path.last_pdf = glm::dot(direct_out, record.surfaceNormal) * ONE_OVER_PI;
 		path.from_specular = false;
-		path.throughput *= abedo;
+		path.throughput *= albedo;
 	}
+    else if(material->type == MaterialType::PLASTIC){
+        MaterialPlastic plastic;
+        plastic.linear_roughness = material->plastic.linear_roughness;
+        plastic.texture_id = material->plastic.texture_id;
+        plastic.diffuse = material->plastic.diffuse;
+        glm::vec3 omega_o;
+        albedo = sample_albedo(plastic.diffuse, texObjs, plastic.texture_id, record.uv);
+        float pdf;
+        if (!plastic_sample(plastic, albedo, omega_i, omega_o, pdf, path.throughput, rng))
+            return;
+        direct_out = local_to_world(omega_o, tangent, bitangent, normal);
+        path.last_pdf = pdf;
+        path.from_specular = plastic.linear_roughness < ROUGHNESS_CUTOFF;
+    }
 	else if (material->type == MaterialType::DIELECTRIC) { // Refraction
         MaterialDielectric dielectric;
 		dielectric.ior = material->dielectric.ior;
@@ -306,7 +550,19 @@ void scatterRay(
 		direct_out = local_to_world(omega_o, tangent, bitangent, normal);
         path.last_pdf = pdf;
         path.from_specular = dielectric.linear_roughness < ROUGHNESS_CUTOFF;
-	}
+	}else if(material->type == MaterialType::CONDUCTOR){
+        MaterialConductor conductor;
+        conductor.eta = material->conductor.eta;
+        conductor.k = material->conductor.k;
+        conductor.linear_roughness = material->conductor.linear_roughness;
+        glm::vec3 omega_o;
+        float pdf;
+        if (!conductor_sample(conductor, omega_i, omega_o, pdf, path.throughput, rng))
+            return;
+        direct_out = local_to_world(omega_o, tangent, bitangent, normal);
+        path.last_pdf = pdf;
+        path.from_specular = conductor.linear_roughness < ROUGHNESS_CUTOFF;
+    }
 	else if (material->type == MaterialType::LIGHT) {// No scattering
 		assert(false);
     }
@@ -314,7 +570,7 @@ void scatterRay(
     path.ray.direction = direct_out;
     
 	// Shadow ray: Next Event Estimation
-	if (!path.from_specular) {
+	if (!path.from_specular && num_lights > 0) {
 		float rand_lgts = u01(rng) * total_lights_weight;
 		int light_idx = 0;
         for (int i = 0; i < num_lights; i++) {
@@ -338,7 +594,7 @@ void scatterRay(
 
 		if (material->type == MaterialType::DIFFUSE) {
             float cosTheta = glm::dot(dir_to_light, record.surfaceNormal);
-			BSDF = abedo / PI;
+			BSDF = albedo / PI;
 			float cosTheta_light = glm::dot(-dir_to_light, light_normal);
 			if (cosTheta > 0 && cosTheta_light > 0) {
                 float bsdf_pdf = cosTheta / PI;
@@ -346,7 +602,20 @@ void scatterRay(
 				float mis_weight = powerHeuristic(light_pdf, bsdf_pdf);
 				shadow_ray.radiance_direct = throughput_in * BSDF * light.emittance * mis_weight / light_pdf;
 			}
-		}
+		}else if(material->type == MaterialType::PLASTIC){
+            MaterialPlastic plastic;
+            plastic.linear_roughness = material->plastic.linear_roughness;
+            plastic.texture_id = material->plastic.texture_id;
+            plastic.diffuse = material->plastic.diffuse;
+            glm::vec3 omega_o = world_to_local(dir_to_light, tangent, bitangent, normal);
+            float pdf;
+            glm::vec3 bsdf;
+            if (plastic_eval(plastic, albedo, omega_i, omega_o, glm::dot(omega_o, record.surfaceNormal), bsdf, pdf)) {
+                float light_pdf = light.emittance * distance * distance / (glm::dot(-dir_to_light, light_normal) * total_lights_weight);
+                float mis_weight = powerHeuristic(light_pdf, pdf);
+                shadow_ray.radiance_direct = throughput_in * bsdf * light.emittance * mis_weight / light_pdf;
+            }
+        }
         else if (material->type == MaterialType::DIELECTRIC) {
 			MaterialDielectric dielectric;
 			dielectric.ior = material->dielectric.ior;
@@ -361,9 +630,20 @@ void scatterRay(
 				float mis_weight = powerHeuristic(light_pdf, pdf);
 				shadow_ray.radiance_direct = throughput_in * bsdf * light.emittance * mis_weight / light_pdf;
             }
-        
+        }else if(material->type == MaterialType::CONDUCTOR){
+            MaterialConductor conductor;
+            conductor.eta = material->conductor.eta;
+            conductor.k = material->conductor.k;
+            conductor.linear_roughness = material->conductor.linear_roughness;
+            glm::vec3 omega_o = world_to_local(dir_to_light, tangent, bitangent, normal);
+            float pdf;
+            glm::vec3 bsdf;
+            if (conductor_eval(conductor, omega_i, omega_o, glm::dot(omega_o, record.surfaceNormal), bsdf, pdf)) {
+                float light_pdf = light.emittance * distance * distance / (glm::dot(-dir_to_light, light_normal) * total_lights_weight);
+                float mis_weight = powerHeuristic(light_pdf, pdf);
+                shadow_ray.radiance_direct = throughput_in * bsdf * light.emittance * mis_weight / light_pdf;
+            }
         }
-
     }
     else {
 		shadow_ray.radiance_direct = glm::vec3(0.f);

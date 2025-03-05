@@ -1,0 +1,262 @@
+{
+    "name": "bunny",
+    "sensor": {
+        "type": "perspective",
+        "fovy": 15,
+        "eye": [0, 12, 15],
+        "lookat": [0, 0, 0],
+        "up": [0, 1, 0],
+        "focal": 0,
+        "aperture": 0,
+        "film": {
+            "resolution": [2048, 512],
+            "spp": 1024
+        }
+    },
+    "integrator": {
+        "type": "path",
+        "maxdepth": 32
+    },
+    "bsdf":[
+        {
+            "type": "diffuse",
+            "rgb": [0.1, 0.1, 0.1],
+            "id": "gray"
+        },
+        {
+            "type": "diffuse",
+            "rgb": [0.4860, 0.6310, 0.6630],
+            "id": "blue"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.01,
+            "id": "dielectric1"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.2,
+            "id": "dielectric2"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.3,
+            "id": "dielectric3"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.4,
+            "id": "dielectric4"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.5,
+            "id": "dielectric5"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.6,
+            "id": "dielectric6"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.7,
+            "id": "dielectric7"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.8,
+            "id": "dielectric8"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 0.9,
+            "id": "dielectric9"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.3,
+            "alpha": 1.0,
+            "id": "dielectric10"
+        }
+    ],
+    "shape": [
+        {
+            "type": "obj",
+            "filename": "models/floor.obj",
+            "usemtl": false,
+            "bsdf": "blue"
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray",
+            "transform": {
+                "translate": [12, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric1",
+            "transform": {
+                "translate": [12, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray",
+            "transform": {
+                "translate": [9, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric2",
+            "transform": {
+                "translate": [9, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray",
+            "transform": {
+                "translate": [6, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric3",
+            "transform": {
+                "translate": [6, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray",
+            "transform": {
+                "translate": [3, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric4",
+            "transform": {
+                "translate": [3, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray"
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric5"
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray",
+            "transform": {
+                "translate": [-3, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric6",
+            "transform": {
+                "translate": [-3, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray",
+            "transform": {
+                "translate": [-6, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric7",
+            "transform": {
+                "translate": [-6, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray",
+            "transform": {
+                "translate": [-9, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric8",
+            "transform": {
+                "translate": [-9, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": "gray",
+            "transform": {
+                "translate": [-12, 0, 0]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": "dielectric9",
+            "transform": {
+                "translate": [-12, 0, 0]
+            }
+        }
+
+    ],
+    "emitter": {
+        "type": "envmap",
+        "filename": "textures/envmap.hdr",
+        "scale": 1
+    }
+}

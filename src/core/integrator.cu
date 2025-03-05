@@ -80,8 +80,6 @@ void Integrator::lutDielectricTexInit() {
 	cudaMemcpyToSymbol(global_lut_dielectric_albedo_leave.texture, 
 					&lut_dielectric_albedo_leave.texture, 
 					sizeof(cudaTextureObject_t));
-
-
 	surf_ddae.free();
 	surf_ddal.free();
 	surf_dae.free();

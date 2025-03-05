@@ -13,10 +13,8 @@ __device__ CUDATexture<float> global_lut_dielectric_albedo_leave;
 __device__ CUDATexture<float> global_lut_conductor_directional_albedo;
 __device__ CUDATexture<float> global_lut_conductor_albedo;
 
-
-
-__device__ inline glm::vec3 fresnel_multiscatter(glm::vec3 F_avg, float E_avg) {
-	return F_avg*F_avg * E_avg / (glm::vec3(1.0f) - F_avg * (1.0f - E_avg));
+__device__ inline float3 fresnel_multiscatter(float3 F_avg, float E_avg) {
+	return F_avg * F_avg * E_avg / (make_float3(1.0f) - F_avg * (1.0f - E_avg));
 }
 
 __device__ inline float dielectric_directional_albedo(float ior, float linear_roughness, float cos_theta, bool entering_material) {

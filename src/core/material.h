@@ -19,7 +19,7 @@ struct Material {
 	int texture_id = -1;
 	float ior = 1.0f;
 	float emittance = 0.0f;
-	float roughness = 0.0f;
+	float roughness = 0.5f;
 	glm::vec3 diffuse = glm::vec3(1.0f);
 	glm::vec3 eta = glm::vec3(0.0f);
 	glm::vec3 k = glm::vec3(0.0f);

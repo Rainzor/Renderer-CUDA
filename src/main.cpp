@@ -72,8 +72,6 @@ int main(int argc, char** argv) {
 	// so, (0 0 1) is forward, (0 1 0) is up
 	glm::vec3 viewXZ = glm::vec3(view.x, 0.0f, view.z);
 	glm::vec3 viewZY = glm::vec3(0.0f, view.y, view.z);
-	phi = glm::acos(glm::dot(glm::normalize(viewXZ), glm::vec3(0, 0, -1)));
-	theta = glm::acos(glm::dot(glm::normalize(viewZY), glm::vec3(0, 1, 0)));
 	ogLookAt = cam.lookAt;
 	zoom = glm::length(cam.position - ogLookAt);
 
@@ -129,11 +127,11 @@ void runCuda() {
 	if (camchanged) {
 		iteration = 0;
 		Camera& cam = renderState->camera;
-		cameraPosition.x = zoom * sin(phi) * sin(theta);
-		cameraPosition.y = zoom * cos(theta);
-		cameraPosition.z = zoom * cos(phi) * sin(theta);
+		//cameraPosition.x = zoom * sin(phi) * sin(theta);
+		//cameraPosition.y = zoom * cos(theta);
+		//cameraPosition.z = zoom * cos(phi) * sin(theta);
 
-		cam.view = -glm::normalize(cameraPosition);
+		cam.view = glm::normalize(ogLookAt - cameraPosition);
 		glm::vec3 v = cam.view;
 		glm::vec3 u = glm::vec3(0, 1, 0);//glm::normalize(cam.up);
 		glm::vec3 r = glm::cross(v, u);
@@ -141,8 +139,7 @@ void runCuda() {
 		cam.right = r;
 
 		cam.position = cameraPosition;
-		cameraPosition += cam.lookAt;
-		cam.position = cameraPosition;
+		cam.lookAt = ogLookAt;
 		camchanged = false;
 		reset = true;
 	}
@@ -202,79 +199,79 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
             // Camera movement controls
 			case GLFW_KEY_W: // Move camera forward
-				cam.position += cam.view * 0.1f;
-				cam.lookAt += cam.view * 0.1f;
+				cameraPosition += cam.view * 0.1f;
+				ogLookAt += cam.view * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_S: // Move camera backward
-				cam.position -= cam.view * 0.1f;
-				cam.lookAt -= cam.view * 0.1f;
+				cameraPosition -= cam.view * 0.1f;
+				ogLookAt -= cam.view * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_A: // Move camera left
-				cam.position -= cam.right * 0.1f;
-				cam.lookAt -= cam.right * 0.1f;
+				cameraPosition -= cam.right * 0.1f;
+				ogLookAt -= cam.right * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_D: // Move camera right
-				cam.position += cam.right * 0.1f;
-				cam.lookAt += cam.right * 0.1f;
+				cameraPosition += cam.right * 0.1f;
+				ogLookAt += cam.right * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_Q: // Move camera down
-				cam.position -= cam.up * 0.1f;
-				cam.lookAt -= cam.up * 0.1f;
+				cameraPosition -= cam.up * 0.1f;
+				ogLookAt -= cam.up * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_E: // Move camera up
-				cam.position += cam.up * 0.1f;
-				cam.lookAt += cam.up * 0.1f;
+				cameraPosition += cam.up * 0.1f;
+				ogLookAt += cam.up * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_UP: // Move camera forward
-				cam.position += cam.view * 0.1f;
-				cam.lookAt += cam.view * 0.1f;
+				cameraPosition += cam.view * 0.1f;
+				ogLookAt += cam.view * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_DOWN: // Move camera backward
-				cam.position -= cam.view * 0.1f;
-				cam.lookAt -= cam.view * 0.1f;
+				cameraPosition -= cam.view * 0.1f;
+				ogLookAt -= cam.view * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_LEFT: // Move camera left
-				cam.position -= cam.right * 0.1f;
-				cam.lookAt -= cam.right * 0.1f;
+				cameraPosition -= cam.right * 0.1f;
+				ogLookAt -= cam.right * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_RIGHT: // Move camera right	
-				cam.position += cam.right * 0.1f;
-				cam.lookAt += cam.right * 0.1f;
+				cameraPosition += cam.right * 0.1f;
+				ogLookAt += cam.right * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_PAGE_UP: // Move camera up
-				cam.position += cam.up * 0.1f;
-				cam.lookAt += cam.up * 0.1f;
+				cameraPosition += cam.up * 0.1f;
+				ogLookAt += cam.up * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_PAGE_DOWN: // Move camera down
-				cam.position -= cam.up * 0.1f;
-				cam.lookAt -= cam.up * 0.1f;
+				cameraPosition -= cam.up * 0.1f;
+				ogLookAt -= cam.up * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_J: // Rotate camera left
-				cam.lookAt += cam.right * 0.1f;
+				ogLookAt += cam.right * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_L: // Rotate camera right
-				cam.lookAt -= cam.right * 0.1f;
+				ogLookAt -= cam.right * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_I: // Rotate camera up
-				cam.lookAt += cam.up * 0.1f;
+				ogLookAt += cam.up * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_K: // Rotate camera down
-				cam.lookAt -= cam.up * 0.1f;
+				ogLookAt -= cam.up * 0.1f;
 				camchanged = true;
         }
     }

@@ -17,12 +17,20 @@
         "type": "path",
         "maxdepth": 32
     },
+    "bsdf":[
+        {
+            "type": "light",
+            "rgb": [1, 1, 1],
+            "emission": 1,
+            "id": "light"
+        }
+    ],
     "shape": [
         {
             "type": "obj",
             "filename": "models/area_light.obj",
             "usemtl": false,
-            "bsdf": 0,
+            "bsdf": "light",
             "transform": {
                 "translate": [0, 0, 0],
                 "rotate": [0, 0, 0],
@@ -40,13 +48,6 @@
             }
         }
 
-    ],
-    "bsdf":[
-        {
-            "type": "light",
-            "rgb": [1, 1, 1],
-            "emission": 1
-        }
     ],
     "emitter": {
         "type": "envmap",

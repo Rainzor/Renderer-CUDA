@@ -3,8 +3,8 @@
     "sensor": {
         "type": "perspective",
         "fovy": 45,
-        "eye": [0, 5.5, 6],
-        "lookat": [0, 5.5, 0],
+        "eye": [0, 4, 2],
+        "lookat": [0, 4, 0],
         "up": [0, 1, 0],
         "focal": 0,
         "aperture": 0,
@@ -21,24 +21,42 @@
         {
             "type": "light",
             "rgb": [1, 1, 1],
-            "emission": 10
+            "emission": 10,
+            "id": "light"
         },
         {
             "type": "specular",
-            "rgb": [0.85, 0.85, 0.85]
+            "rgb": [0.85, 0.85, 0.85],
+            "id": "mirror"
         },
         {
             "type": "diffuse",
-            "rgb": [0.5880, 0.5880, 0.5880]
+            "rgb": [0.5880, 0.5880, 0.5880],
+            "id": "gray"
         },
         {
             "type": "diffuse",
-            "rgb": [0.4860, 0.6310, 0.6630]
+            "rgb": [0.4860, 0.6310, 0.6630],
+            "id": "blue"
         },
         {
             "type": "dielectric",
-            "ior": 1.5,
-            "alpha": 0.5
+            "ior": 1.2,
+            "alpha": 1,
+            "id": "dielectric"
+        },
+        {
+            "type": "conductor",
+            "eta": [0.200438, 0.924033, 1.10221],
+            "k": [3.91295, 2.45285, 2.14219],
+            "alpha": 0.1,
+            "id": "conductor"
+        },
+        {
+            "type": "plastic",
+            "rgb": [0.240, 0.771, 0.361],
+            "ior": 1.9,
+            "id": "plastic"
         }
     ],
     "shape": [
@@ -46,7 +64,7 @@
             "type": "obj",
             "filename": "models/area_light.obj",
             "usemtl": false,
-            "bsdf": 0,
+            "bsdf": "light",
             "transform": {
                 "translate": [-0.5, 0, 1.5],
                 "rotate": [0, 0, 0],
@@ -62,19 +80,29 @@
             "type": "obj",
             "filename": "models/mitsuba0.obj",
             "usemtl": false,
-            "bsdf": 2
+            "bsdf": "gray",
+            "transform": {
+                "translate": [1.5, 1.7, -3],
+                "rotate": [0, -30, 0],
+                "scale": [1, 1, 1]
+            }
         },
         {
             "type": "obj",
             "filename": "models/mitsuba1.obj",
             "usemtl": false,
-            "bsdf": 4
+            "bsdf": "conductor",
+            "transform": {
+                "translate": [1.5, 1.7, -3],
+                "rotate": [0, -30, 0],
+                "scale": [1, 1, 1]
+            }
         },
         {
             "type": "obj",
             "filename": "models/mirror.obj",
             "usemtl": false,
-            "bsdf": 1
+            "bsdf": "mirror"
         }
     ],
     "emitter": {

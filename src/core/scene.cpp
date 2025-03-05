@@ -54,6 +54,7 @@ Scene::Scene(std::string filename) {
 		default_m.emittance = 0.0f;
 		default_m.ior = 1.0f;
 		materials.push_back(default_m);
+		material_map["default"] = 0;
 
         for (const auto& material : sceneData["bsdf"]) {
 			if (loadMaterial(material) == -1) {
@@ -72,6 +73,8 @@ Scene::Scene(std::string filename) {
 		buildBVH();
     }
     fp_in.close();
+	std::cout << "Scene loaded successfully!" << std::endl;
+	std::cout << "Starting rendering..." << std::endl;
 }
 
 Scene::~Scene() {
@@ -99,6 +102,7 @@ int Scene::loadCamera(const json& cameraData) {
     state.iterations = filmData["spp"];
 
     camera.position = glm::vec3(cameraData["eye"][0], cameraData["eye"][1], cameraData["eye"][2]);
+	//std::cout << camera.position.x << " " << camera.position.y << " " << camera.position.z << endl;
     camera.lookAt = glm::vec3(cameraData["lookat"][0], cameraData["lookat"][1], cameraData["lookat"][2]);
     camera.up = glm::vec3(cameraData["up"][0], cameraData["up"][1], cameraData["up"][2]);
 
@@ -112,11 +116,11 @@ int Scene::loadCamera(const json& cameraData) {
     float fovx = (atan(xscaled) * 180) / PI;
     camera.fov = glm::vec2(fovx, fovy);
 
+    camera.view = glm::normalize(camera.lookAt - camera.position);
     camera.right = glm::normalize(glm::cross(camera.view, camera.up));
     camera.pixelLength = glm::vec2(2 * xscaled / (float)camera.resolution.x,
                                    2 * yscaled / (float)camera.resolution.y);
 
-    camera.view = glm::normalize(camera.lookAt - camera.position);
 
     // Set up render camera stuff
     int arraylen = camera.resolution.x * camera.resolution.y;
@@ -130,18 +134,24 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
     Material newMaterial;
     std::string type = materialData["type"];
 
-    if (type == "light") {
-        newMaterial.type = MaterialType::LIGHT;
-    }
-    else if (type == "diffuse") {
-        newMaterial.type = MaterialType::DIFFUSE;
-    }
-    else if (type == "specular") {
-        newMaterial.type = MaterialType::SPECULAR;
-    }
-    else if (type == "dielectric") {
-        newMaterial.type = MaterialType::DIELECTRIC;
-    }
+	if (type == "light") {
+		newMaterial.type = MaterialType::LIGHT;
+	}
+	else if (type == "diffuse") {
+		newMaterial.type = MaterialType::DIFFUSE;
+	}
+	else if (type == "specular") {
+		newMaterial.type = MaterialType::SPECULAR;
+	}
+	else if (type == "plastic") {
+		newMaterial.type = MaterialType::PLASTIC;
+	}
+	else if (type == "dielectric") {
+		newMaterial.type = MaterialType::DIELECTRIC;
+	}
+	else if (type == "conductor") {
+		newMaterial.type = MaterialType::CONDUCTOR;
+	}
 
     // Load color and other properties
     if (materialData.contains("rgb")) {
@@ -174,7 +184,21 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
 	if (materialData.contains("alpha")) {
 		newMaterial.roughness = materialData["alpha"];
 	}
+	if (materialData.contains("eta")) {
+		newMaterial.eta = glm::vec3(materialData["eta"][0], materialData["eta"][1], materialData["eta"][2]);
+	}
+	if (materialData.contains("k")) {
+		newMaterial.k = glm::vec3(materialData["k"][0], materialData["k"][1], materialData["k"][2]);
+	}
 
+	if (materialData.contains("id")) {
+		string id = materialData["id"];
+		material_map[id] = materials.size();
+	}
+	else {
+		string id = std::to_string(materials.size());
+		material_map[id] = materials.size();
+	}
     materials.push_back(newMaterial);
     return 1;
 }
@@ -203,12 +227,10 @@ int Scene::loadGeom(const json& shapeData) {
 	newGeom.transform.invTranspose = glm::inverseTranspose(newGeom.transform.transform);
 
 	// Link material (bsdf)
-	if (shapeData.contains("bsdf"))
-		newGeom.materialId = shapeData["bsdf"] + 1; // Offset by 1 to account for default material
-	else {
-		// Default material
-		newGeom.materialId = 0;
-	}
+
+
+	string mat_id = shapeData.contains("bsdf") ? shapeData["bsdf"] : "default";
+	newGeom.materialId = material_map[mat_id];
 
 	auto material_type = materials[newGeom.materialId].type;
 
@@ -268,7 +290,7 @@ int Scene::loadGeom(const json& shapeData) {
 		return -1;
 	}
 
-	std::cout << "Connecting Geom to Material " << newGeom.materialId << "..." << std::endl;
+	std::cout << "Connecting Geom to Material " << mat_id << "..." << std::endl;
 	geoms.push_back(newGeom);
 	return 1;
 }
@@ -296,10 +318,10 @@ int Scene::loadObj(const string& obj_path,const Transform& trans, bool usemtl) {
 		return -1;
 	}
 
-	std::cout << std::endl << "Obj file has materials size: " << to_materials.size() << std::endl;
+	std::cout <<"Obj file has materials size: " << to_materials.size() << std::endl;
 	int materialId_offset = this->materials.size();
     for (size_t i = 0; i < to_materials.size() && usemtl; i++) {
-		std::cout << std::endl << "Creating new material " << this->materials.size() << "..." << std::endl;
+		std::cout << std::endl << "Creating new material " << "..." << std::endl;
 		Material newMaterial;
 		tinyobj::material_t &mat = to_materials[i];
 		newMaterial.type = MaterialType::DIFFUSE;
@@ -321,6 +343,7 @@ int Scene::loadObj(const string& obj_path,const Transform& trans, bool usemtl) {
 		else {
 			newMaterial.texture_id = -1;
 		}
+		material_map[mat.name] = this->materials.size();
 		this->materials.push_back(newMaterial);
     }
 
@@ -383,16 +406,18 @@ int Scene::loadObj(const string& obj_path,const Transform& trans, bool usemtl) {
 			memcpy(new_trimesh.triangles, trimesh.triangles + tri_index_offset, face_size * sizeof(Triangle));
 
 			trimeshes.push_back(new_trimesh);
-
+			const auto& to_mat = to_materials[shape.mesh.material_ids[0]];
 			Geom newGeom;
 			newGeom.type = Primitive::TRIANGLE;
 			newGeom.trimeshId = trimeshes.size() - 1;
-			if (shape.mesh.material_ids[0] == -1)
+			if (shape.mesh.material_ids[0] == -1) {
 				newGeom.materialId = 0;
-			else
-				newGeom.materialId = shape.mesh.material_ids[0] + materialId_offset;
-
-			std::cout << "Connecting Geom to Material " << newGeom.materialId << "..." << std::endl;
+				std::cout << "Connecting Geom to Material default..." << std::endl;
+			}
+			else {
+				newGeom.materialId = material_map[to_mat.name];
+				std::cout << "Connecting Geom to Material " << to_mat.name << "..." << std::endl;
+			}
 			newGeom.transform = trans;
 			geoms.push_back(newGeom);
 			tri_index_offset += face_size;
