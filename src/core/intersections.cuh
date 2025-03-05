@@ -116,9 +116,9 @@ __device__ bool sphereIntersectionTest(Ray r, float tmax,
 	uv.y = theta / PI;
 
 	normal = outward_normal;
-    if (!outside) {
-        normal = -normal;
-    }
+    //if (!outside) {
+    //    normal = -normal;
+    //}
 
 	record.surfaceNormal = normal;
 	record.uv = uv;

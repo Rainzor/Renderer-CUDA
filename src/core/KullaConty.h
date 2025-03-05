@@ -4,6 +4,7 @@
 #include "texture.h"
 #include "utils/utilities.h"
 #include "Sampling.h"
+#include "integrator.h"
 
 __device__ CUDATexture<float> global_lut_dielectric_directional_albedo_enter;
 __device__ CUDATexture<float> global_lut_dielectric_directional_albedo_leave;

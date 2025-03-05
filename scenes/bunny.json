@@ -17,6 +17,17 @@
         "type": "path",
         "maxdepth": 32
     },
+    "bsdf":[
+        {
+            "type": "light",
+            "rgb": [1, 1, 1],
+            "emission": 10
+        },
+        {
+            "type": "specular",
+            "rgb": [0.85, 0.85, 0.85]
+        }
+    ],
     "shape": [
         {
             "type": "obj",
@@ -51,16 +62,5 @@
             }
         }
 
-    ],
-    "bsdf":[
-        {
-            "type": "light",
-            "rgb": [1, 1, 1],
-            "emission": 10
-        },
-        {
-            "type": "specular",
-            "rgb": [0.85, 0.85, 0.85]
-        }
-    ]   
+    ]
 }

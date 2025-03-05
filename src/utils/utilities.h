@@ -14,6 +14,7 @@
 #define PI                3.1415926535897932384626422832795028841971f
 #define TWO_PI            6.2831853071795864769252867665590057683943f
 #define SQRT_OF_ONE_THIRD 0.5773502691896257645091487805019574556476f
+#define ONE_OVER_PI       0.3183098861837906715377675267450287240689f
 #define EPSILON           0.00001f
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
@@ -83,6 +84,26 @@ __device__ T lerp(T const& a, T const& b, float t) {
     return (1.0f - t) * a + t * b;
 }
 
+__device__ inline void orthonormal_basis(glm::vec3 normal, glm::vec3& tangent, glm::vec3& binormal) {
+    float sign = copysignf(1.0f, normal.z);
+    float a = -1.0f / (sign + normal.z);
+    float b = normal.x * normal.y * a;
+
+    tangent = glm::vec3(1.0f + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
+    binormal = glm::vec3(b, sign + normal.y * normal.y * a, -normal.y);
+}
+
+__device__ inline glm::vec3 local_to_world(glm::vec3 vector, glm::vec3 tangent, glm::vec3 binormal, glm::vec3 normal) {
+    return glm::vec3(
+        tangent.x * vector.x + binormal.x * vector.y + normal.x * vector.z,
+        tangent.y * vector.x + binormal.y * vector.y + normal.y * vector.z,
+        tangent.z * vector.x + binormal.z * vector.y + normal.z * vector.z
+    );
+}
+
+__device__ inline glm::vec3 world_to_local(glm::vec3 vector, glm::vec3 tangent, glm::vec3 binormal, glm::vec3 normal) {
+    return glm::vec3(glm::dot(tangent, vector), glm::dot(binormal, vector), glm::dot(normal, vector));
+}
 
 /**
  * Multiplies a mat4 and a vec4 and returns a vec3 clipped from the vec4.

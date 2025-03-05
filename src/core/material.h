@@ -25,6 +25,33 @@ struct Material {
 	glm::vec3 k = glm::vec3(0.0f);
 };
 
+struct MaterialLight {
+	glm::vec3 emission;
+};
+
+struct MaterialDiffuse {
+	glm::vec3 diffuse;
+	int    texture_id;
+};
+
+struct MaterialPlastic {
+	glm::vec3 diffuse;
+	int    texture_id;
+	float  linear_roughness;
+};
+
+struct MaterialDielectric {
+	int   medium_id;
+	float ior;
+	float linear_roughness;
+};
+
+struct MaterialConductor {
+	glm::vec3 eta;
+	float  linear_roughness;
+	glm::vec3 k;
+};
+
 
 __device__ inline float roughness_to_alpha(float linear_roughness) {
 	return fmaxf(1e-6f, (linear_roughness* linear_roughness));

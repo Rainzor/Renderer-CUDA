@@ -297,8 +297,6 @@ __global__ void shadeMaterialMIS(
 		if (depth == 0 || cur_trace.from_specular) {// mis weight is 1
 			cur_trace.color += cur_trace.throughput * material->light.emission;
 			cur_trace.remainingBounces = 0;
-			shadow_ray.radiance_direct = glm::vec3(0);
-			shadow_ray.t_max = -1.0f;
 			return;
 		}
 
@@ -312,8 +310,6 @@ __global__ void shadeMaterialMIS(
 		float mis_weight = powerHeuristic(cur_trace.last_pdf, light_pdf);
 		cur_trace.color += cur_trace.throughput * material->light.emission * mis_weight;
 		cur_trace.remainingBounces = 0;
-		shadow_ray.radiance_direct = glm::vec3(0);
-		shadow_ray.t_max = -1.0f;
 		return;
 #else 
 		cur_trace.color += cur_trace.throughput * material->light.emission;

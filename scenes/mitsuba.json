@@ -1,0 +1,85 @@
+{
+    "name": "bunny",
+    "sensor": {
+        "type": "perspective",
+        "fovy": 45,
+        "eye": [0, 5.5, 6],
+        "lookat": [0, 5.5, 0],
+        "up": [0, 1, 0],
+        "focal": 0,
+        "aperture": 0,
+        "film": {
+            "resolution": [1024, 1024],
+            "spp": 1024
+        }
+    },
+    "integrator": {
+        "type": "path",
+        "maxdepth": 32
+    },
+    "bsdf":[
+        {
+            "type": "light",
+            "rgb": [1, 1, 1],
+            "emission": 10
+        },
+        {
+            "type": "specular",
+            "rgb": [0.85, 0.85, 0.85]
+        },
+        {
+            "type": "diffuse",
+            "rgb": [0.5880, 0.5880, 0.5880]
+        },
+        {
+            "type": "diffuse",
+            "rgb": [0.4860, 0.6310, 0.6630]
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.5,
+            "alpha": 0.5
+        }
+    ],
+    "shape": [
+        {
+            "type": "obj",
+            "filename": "models/area_light.obj",
+            "usemtl": false,
+            "bsdf": 0,
+            "transform": {
+                "translate": [-0.5, 0, 1.5],
+                "rotate": [0, 0, 0],
+                "scale": [2, 1, 2]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/box.obj",
+            "usemtl": true
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba0.obj",
+            "usemtl": false,
+            "bsdf": 2
+        },
+        {
+            "type": "obj",
+            "filename": "models/mitsuba1.obj",
+            "usemtl": false,
+            "bsdf": 4
+        },
+        {
+            "type": "obj",
+            "filename": "models/mirror.obj",
+            "usemtl": false,
+            "bsdf": 1
+        }
+    ],
+    "emitter": {
+        "type": "envmap",
+        "filename": "textures/envmap.hdr",
+        "scale": 1
+    }
+}

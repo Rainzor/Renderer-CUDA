@@ -171,6 +171,9 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
     if (materialData.contains("ior")) {
         newMaterial.ior = materialData["ior"];
     }
+	if (materialData.contains("alpha")) {
+		newMaterial.roughness = materialData["alpha"];
+	}
 
     materials.push_back(newMaterial);
     return 1;
@@ -179,17 +182,19 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
 int Scene::loadGeom(const json& shapeData) {
 	Geom newGeom;
 	// Load transformations
+	newGeom.transform.translation = glm::vec3(0.0f);
+	newGeom.transform.rotation = glm::vec3(0.0f);
+	newGeom.transform.scale = glm::vec3(1.0f);
 	if (shapeData.contains("transform")) {
 		auto transform = shapeData["transform"];
-		newGeom.transform.translation = glm::vec3(transform["translate"][0], transform["translate"][1], transform["translate"][2]);
-		newGeom.transform.rotation = glm::vec3(transform["rotate"][0], transform["rotate"][1], transform["rotate"][2]);
-		newGeom.transform.scale = glm::vec3(transform["scale"][0], transform["scale"][1], transform["scale"][2]);
-	}
-	else {
-		// Default transformations
-		newGeom.transform.translation = glm::vec3(0.0f);
-		newGeom.transform.rotation = glm::vec3(0.0f);
-		newGeom.transform.scale = glm::vec3(1.0f);
+		if (transform.contains("translate"))
+			newGeom.transform.translation = glm::vec3(transform["translate"][0], transform["translate"][1], transform["translate"][2]);
+		
+		if (transform.contains("rotate"))
+			newGeom.transform.rotation = glm::vec3(transform["rotate"][0], transform["rotate"][1], transform["rotate"][2]);
+
+		if (transform.contains("scale"))
+			newGeom.transform.scale = glm::vec3(transform["scale"][0], transform["scale"][1], transform["scale"][2]);
 	}
 
 

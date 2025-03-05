@@ -94,6 +94,28 @@ __device__ float2 sample_disk(float u1, float u2) {
 }
 
 // Based on: Heitz - Sampling the GGX Distribution of Visible Normals
+__device__ glm::vec3 sample_visible_normals_ggx(glm::vec3 omega, float alpha_x, float alpha_y, float u1, float u2) {
+    // Transform the view direction to the hemisphere configuration
+    glm::vec3 v = glm::normalize(glm::vec3(alpha_x * omega.x, alpha_y * omega.y, omega.z));
+
+    // Orthonormal basis (with special case if cross product is zero)
+    float length_squared = v.x * v.x + v.y * v.y;
+    glm::vec3 axis_1 = length_squared > 0.0f ? glm::vec3(-v.y, v.x, 0.0f) / sqrtf(length_squared) : glm::vec3(1.0f, 0.0f, 0.0f);
+    glm::vec3 axis_2 = glm::cross(v, axis_1);
+
+    // Parameterization of the projected area
+    float2 d = sample_disk(u1, u2);
+    float t1 = d.x;
+    float t2 = lerp(safe_sqrt(1.0f - t1 * t1), d.y, 0.5f + 0.5f * v.z);
+
+    // Reproject onto hemisphere
+    glm::vec3 n_h = t1 * axis_1 + t2 * axis_2 + safe_sqrt(1.0f - t1 * t1 - t2 * t2) * v;
+
+    // Transform the normal back to the ellipsoid configuration
+    return glm::normalize(glm::vec3(alpha_x * n_h.x, alpha_y * n_h.y, n_h.z));
+}
+
+// Based on: Heitz - Sampling the GGX Distribution of Visible Normals
 __device__ float3 sample_visible_normals_ggx(float3 omega, float alpha_x, float alpha_y, float u1, float u2) {
     // Transform the view direction to the hemisphere configuration
     float3 v = normalize(make_float3(alpha_x * omega.x, alpha_y * omega.y, omega.z));
@@ -113,4 +135,9 @@ __device__ float3 sample_visible_normals_ggx(float3 omega, float alpha_x, float 
 
     // Transform the normal back to the ellipsoid configuration
     return normalize(make_float3(alpha_x * n_h.x, alpha_y * n_h.y, n_h.z));
+}
+
+__device__ glm::vec3 sample_cosine_weighted_direction(float u1, float u2) {
+    float2 d = sample_disk(u1, u2);
+    return glm::vec3(d.x, d.y, safe_sqrt(1.0f - dot(d, d)));
 }
