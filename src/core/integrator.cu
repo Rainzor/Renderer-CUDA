@@ -11,23 +11,40 @@
 #include "bsdf.cuh"
 #include "intersections.cuh"
 
+
+__global__ void kernel_slice_data(float ior, float* img) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA) return;
+	int r_idx = (idx / LUT_CONDUCTOR_DIM_COS_THETA) % LUT_CONDUCTOR_DIM_ROUGHNESS;
+	int c_idx = idx % LUT_CONDUCTOR_DIM_COS_THETA;
+
+	float roughness = (r_idx + 0.5f) / LUT_CONDUCTOR_DIM_ROUGHNESS;
+	float cos_theta = (c_idx + 0.5f) / LUT_CONDUCTOR_DIM_COS_THETA;
+
+	float albedo = dielectric_directional_albedo(ior, roughness, cos_theta, true);
+	img[idx] = albedo;
+}
+
+
 void Integrator::lutDielectricTexInit() {
 	// Init
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
 	cudaArray* lut_ddae_array;
 	cudaMalloc3DArray(&lut_ddae_array, &channelDesc, 
-					make_cudaExtent(LUT_DIELECTRIC_DIM_ROUGHNESS, 
-									LUT_DIELECTRIC_DIM_COS_THETA, 
-									LUT_DIELECTRIC_DIM_IOR));
+					make_cudaExtent(LUT_DIELECTRIC_DIM_IOR,
+									LUT_DIELECTRIC_DIM_ROUGHNESS, 
+									LUT_DIELECTRIC_DIM_COS_THETA 
+									));
 	lut_dielectric_directional_albedo_enter.init(lut_ddae_array);
 	CUDASurface<float> surf_ddae;
 	surf_ddae.init(lut_ddae_array);
 
 	cudaArray* lut_ddal_array;
 	cudaMalloc3DArray(&lut_ddal_array, &channelDesc, 
-					make_cudaExtent(LUT_DIELECTRIC_DIM_ROUGHNESS, 
-									LUT_DIELECTRIC_DIM_COS_THETA, 
-									LUT_DIELECTRIC_DIM_IOR));
+					make_cudaExtent(LUT_DIELECTRIC_DIM_IOR,
+									LUT_DIELECTRIC_DIM_ROUGHNESS,
+									LUT_DIELECTRIC_DIM_COS_THETA
+									));
 	lut_dielectric_directional_albedo_leave.init(lut_ddal_array);
 	CUDASurface<float> surf_ddal;
 	surf_ddal.init(lut_ddal_array);
@@ -65,8 +82,6 @@ void Integrator::lutDielectricTexInit() {
 	kernel_average_dielectric << <block_num, BLOCK_SIZE1D >> > (surf_ddal, surf_dal);
 
 	cudaDeviceSynchronize();
-
-
 	// Copy to texture
 	cudaMemcpyToSymbol(global_lut_dielectric_directional_albedo_enter.texture, 
 					&lut_dielectric_directional_albedo_enter.texture, 
@@ -80,6 +95,30 @@ void Integrator::lutDielectricTexInit() {
 	cudaMemcpyToSymbol(global_lut_dielectric_albedo_leave.texture, 
 					&lut_dielectric_albedo_leave.texture, 
 					sizeof(cudaTextureObject_t));
+
+
+	//float* hst_data = new float[LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA];
+	//float* dev_data;
+	//cudaMalloc(&dev_data, LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA * sizeof(float));
+
+	//thread_num = LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA;
+	//block_num = (thread_num + BLOCK_SIZE1D - 1) / BLOCK_SIZE1D;
+	//kernel_slice_data << <block_num, BLOCK_SIZE1D >> > (1.3f, dev_data);
+	//cudaMemcpy(hst_data, dev_data, LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA * sizeof(float), cudaMemcpyDeviceToHost);
+
+	//unsigned char* img_data = new unsigned char[LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA];
+	//for (int i = 0; i < LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA; i++) {
+	//	float albedo = clamp(hst_data[i], 0.0f, 1.0f);
+	//	img_data[i] = (unsigned char)(albedo * 255);
+	//}
+	//stbi_write_png("dielectric_albedo_enter.png", LUT_DIELECTRIC_DIM_ROUGHNESS, LUT_DIELECTRIC_DIM_COS_THETA, 1, img_data, 0);
+
+	//delete[] hst_data;
+	//delete[] img_data;
+	//cudaFree(dev_data);
+
+
+
 	surf_ddae.free();
 	surf_ddal.free();
 	surf_dae.free();

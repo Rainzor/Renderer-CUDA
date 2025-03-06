@@ -58,7 +58,7 @@ __device__ inline float roughness_to_alpha(float linear_roughness) {
 }
 
 __device__ inline float fresnel_dielectric(float cos_theta_i, float eta) {
-	float sin_theta_o2 = eta * eta * (1.0f - square(cos_theta_i));
+	float sin_theta_o2 = eta * eta * (1.0f - cos_theta_i* cos_theta_i);
 	if (sin_theta_o2 >= 1.0f) {
 		return 1.0f; // Total internal reflection (TIR)
 	}

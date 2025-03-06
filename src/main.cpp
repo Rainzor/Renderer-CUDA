@@ -2,7 +2,7 @@
 #include "preview.h"
 #include <cstring>
 #include "core/integrator.h"
-
+#include <filesystem>
 static std::string startTimeString;
 
 // For camera controls
@@ -118,6 +118,12 @@ void saveImage() {
 	ss << filename << "." << startTimeString << "." << samples << "samp";
 	filename = ss.str();
 
+	auto path = std::filesystem::path(std::string("outputs"));
+	if (!std::filesystem::exists(path)) {
+		std::filesystem::create_directory(path);
+	}
+
+	filename = path.string() + "/" + filename;
 	// CHECKITOUT
 	img.savePNG(filename);
 	//img.saveHDR(filename);  // Save a Radiance HDR file

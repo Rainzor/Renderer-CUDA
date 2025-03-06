@@ -143,23 +143,22 @@ bool dielectric_sample(const MaterialDielectric& material,
                         glm::vec3& throughput,
     thrust::default_random_engine& rng) 
 {
-    float eta = entering_material ? material.ior : 1.f / material.ior;
+    float eta = entering_material ? 1.f / material.ior : material.ior;
     float alpha_x = roughness_to_alpha(material.linear_roughness);
     float alpha_y = roughness_to_alpha(material.linear_roughness);
 
     float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_i.z, entering_material);
-	//float E_i = 1.0f;
+	//float E_i = 0.1f;
     float F_avg = average_fresnel(material.ior);
     if (!entering_material) {
         F_avg = 1.f - (1.f - F_avg) / square(material.ior);
     }
 
     float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
-	//float E_avg_leave = 1.0f;
     float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
-	//float E_avg_enter = 1.0f;
     float x = kulla_conty_dielectric_reciprocity_factor(E_avg_enter, E_avg_leave);
     float ratio = (entering_material ? x : (1.0f - x)) * (1.0f - F_avg);
+    //float ratio = 0.0f;
 
     float F;
     bool reflected;
@@ -173,7 +172,6 @@ bool dielectric_sample(const MaterialDielectric& material,
     if (rand_bsdf_0.x < E_i) {
         // Sample single scatter component
 		omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_bsdf_1.x, rand_bsdf_1.y);
-		//omega_m = glm::vec3(0.f, 0.f, 1.f);
 		F = fresnel_dielectric(glm::dot(omega_i, omega_m), eta);
         reflected = rand_bsdf_0.y < F;
 		if (reflected) {
@@ -224,7 +222,6 @@ bool dielectric_sample(const MaterialDielectric& material,
         pdf_single = F * G1 * D / (4.0f * omega_i.z);
 
         float E_o = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
-		//float E_o = 1.0f;
         float E_avg = entering_material ? E_avg_enter : E_avg_leave;
 
         bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
@@ -234,7 +231,6 @@ bool dielectric_sample(const MaterialDielectric& material,
         pdf_single = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 
         float E_o = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
-		//float E_o = 1.0f;
         float E_avg = entering_material ? E_avg_leave : E_avg_enter; // NOTE: inverted!
 
         bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
@@ -265,7 +261,7 @@ __device__ bool dielectric_eval(const MaterialDielectric& material,
                                 float& pdf) 
 {
     bool reflected = omega_o.z >= 0.0f;
-    float eta = entering_material ? material.ior : 1.f / material.ior;
+	float eta = entering_material ? 1.f / material.ior : material.ior;
 	glm::vec3 omega_m;
 	if (reflected) {
 		omega_m = glm::normalize(omega_i + omega_o);
@@ -335,35 +331,6 @@ __device__ bool dielectric_eval(const MaterialDielectric& material,
     pdf = lerp(pdf_multi, pdf_single, E_i);
 	return pdf > 0.f;
 }
-
-__device__
-bool test_dielectric_sample(const MaterialDielectric& material,
-    const bool entering_material,
-    const glm::vec3& omega_i,
-    glm::vec3& omega_o,
-    float& pdf,
-    glm::vec3& throughput,
-    thrust::default_random_engine& rng) {
-	float eta = entering_material ? material.ior : 1.f / material.ior;
-	float cos_theta_i = omega_i.z;
-
-	float F = fresnel_dielectric(cos_theta_i, eta);
-	thrust::uniform_real_distribution<float> u01(0, 1);
-	bool reflected = u01(rng) < F;
-    if (reflected) {
-        omega_o = reflect_direction(omega_i, glm::vec3(0.f, 0.f, 1.f));
-	}
-	else {
-		omega_o = refract_direction(omega_i, glm::vec3(0.f, 0.f, 1.f), eta);
-	}
-	if (reflected ^ (omega_o.z >= 0.f)) return false;
-
-	pdf = 1.f;
-	throughput *= glm::vec3(1.f);
-    return true;
-}
-
-
 
 __device__ bool conductor_sample(const MaterialConductor& material,
                                 const glm::vec3& omega_i,
@@ -586,8 +553,6 @@ void scatterRay(
 		glm::vec3 omega_o;
 		float pdf;
 		glm::vec3 throughput(1.f);
-        //if (!dielectric_sample(dielectric, record.outside, omega_i, omega_o, pdf, throughput, rng))
-        //    return;
 		if (!dielectric_sample(dielectric, record.outside, omega_i, omega_o, pdf, throughput, rng))
 			return;
 		direct_out = local_to_world(omega_o, tangent, bitangent, normal);

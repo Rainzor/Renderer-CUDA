@@ -36,13 +36,18 @@
         },
         {
             "type": "diffuse",
+            "rgb": [0.1, 0.1, 0.1],
+            "id": "black"
+        },
+        {
+            "type": "diffuse",
             "rgb": [0.4860, 0.6310, 0.6630],
             "id": "blue"
         },
         {
             "type": "dielectric",
-            "ior": 1.8,
-            "alpha": 0.2,
+            "ior": 1.5,
+            "alpha": 0.1,
             "id": "dielectric"
         },
         {
@@ -55,7 +60,7 @@
         {
             "type": "plastic",
             "rgb": [0.52941, 0.80784, 1.0],
-            "alpha": 0.01,
+            "alpha": 0.1,
             "id": "plastic"
         }
     ],
@@ -80,7 +85,7 @@
             "type": "obj",
             "filename": "models/mitsuba0.obj",
             "usemtl": false,
-            "bsdf": "gray",
+            "bsdf": "black",
             "transform": {
                 "translate": [1.5, 0, -3],
                 "rotate": [0, -30, 0],

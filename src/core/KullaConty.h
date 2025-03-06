@@ -168,9 +168,7 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, C
 	}
 
 	lut_directional_albedo.set(i, r, c, avg);
-	//surf3Dwrite(avg, lut_directional_albedo, i * sizeof(float), r, c);
 }
-
 extern "C" __global__ void kernel_average_dielectric(const CUDASurface<float> lut_directional_albedo, CUDASurface<float> lut_albedo) {
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS) return;
