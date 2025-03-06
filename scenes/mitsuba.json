@@ -1,10 +1,10 @@
 {
-    "name": "bunny",
+    "name": "mitsuba",
     "sensor": {
         "type": "perspective",
-        "fovy": 45,
-        "eye": [0, 4, 2],
-        "lookat": [0, 4, 0],
+        "fovy": 30,
+        "eye": [0, 3, 4],
+        "lookat": [0, 3, 0],
         "up": [0, 1, 0],
         "focal": 0,
         "aperture": 0,
@@ -15,7 +15,7 @@
     },
     "integrator": {
         "type": "path",
-        "maxdepth": 32
+        "maxdepth": 64
     },
     "bsdf":[
         {
@@ -41,8 +41,8 @@
         },
         {
             "type": "dielectric",
-            "ior": 1.2,
-            "alpha": 1,
+            "ior": 1.8,
+            "alpha": 0.2,
             "id": "dielectric"
         },
         {
@@ -54,8 +54,8 @@
         },
         {
             "type": "plastic",
-            "rgb": [0.240, 0.771, 0.361],
-            "ior": 1.9,
+            "rgb": [0.52941, 0.80784, 1.0],
+            "alpha": 0.01,
             "id": "plastic"
         }
     ],
@@ -82,20 +82,20 @@
             "usemtl": false,
             "bsdf": "gray",
             "transform": {
-                "translate": [1.5, 1.7, -3],
+                "translate": [1.5, 0, -3],
                 "rotate": [0, -30, 0],
-                "scale": [1, 1, 1]
+                "scale": [1.2, 1.2, 1.2]
             }
         },
         {
             "type": "obj",
             "filename": "models/mitsuba1.obj",
             "usemtl": false,
-            "bsdf": "conductor",
+            "bsdf": "dielectric",
             "transform": {
-                "translate": [1.5, 1.7, -3],
+                "translate": [1.5, 0, -3],
                 "rotate": [0, -30, 0],
-                "scale": [1, 1, 1]
+                "scale": [1.2, 1.2, 1.2]
             }
         },
         {

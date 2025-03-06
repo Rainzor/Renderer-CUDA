@@ -218,14 +218,14 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				ogLookAt += cam.right * 0.1f;
 				camchanged = true;
 				break;
-			case GLFW_KEY_Q: // Move camera down
-				cameraPosition -= cam.up * 0.1f;
-				ogLookAt -= cam.up * 0.1f;
-				camchanged = true;
-				break;
-			case GLFW_KEY_E: // Move camera up
+			case GLFW_KEY_Q: // Move camera up
 				cameraPosition += cam.up * 0.1f;
 				ogLookAt += cam.up * 0.1f;
+				camchanged = true;
+				break;
+			case GLFW_KEY_E: // Move camera down
+				cameraPosition -= cam.up * 0.1f;
+				ogLookAt -= cam.up * 0.1f;
 				camchanged = true;
 				break;
 			case GLFW_KEY_UP: // Move camera forward

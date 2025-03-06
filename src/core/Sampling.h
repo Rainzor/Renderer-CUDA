@@ -3,7 +3,8 @@
 #include <cuda_runtime.h>
 #include <thrust/random.h>
 #include "utils/utilities.h"
-
+__device__ __constant__ float2* pmj_samples;
+__device__ __constant__ uchar2* blue_noise_textures;
 enum struct SampleDimension:int {
     FILTER,
     APERTURE,
@@ -17,6 +18,7 @@ enum struct SampleDimension:int {
     NUM_DIMENSIONS,
     NUM_BOUNCE = 5 // Last 5 dimensions are reused every bounce
 };
+
  /**
  * Handy-dandy hash function that provides seeds for random number generation.
  */

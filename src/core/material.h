@@ -9,7 +9,7 @@ enum MaterialType: unsigned char {
     LIGHT,
     DIFFUSE,
     SPECULAR,
-    DIELECTRIC,
+	DIELECTRIC,
     CONDUCTOR,
     PLASTIC,
 };

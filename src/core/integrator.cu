@@ -285,8 +285,7 @@ __global__ void shadeMaterialMIS(
 		return;
 	}
 
-	thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, depth);
-	thrust::uniform_real_distribution<float> u01(0, 1);
+
 
 	Integrator::CUDAMaterial* material = &materials[record.material_id];
 	// If the material indicates that the object was a light, "light" the ray
@@ -316,6 +315,8 @@ __global__ void shadeMaterialMIS(
 	}
 
 	 //Russian Roulette
+	thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, depth);
+	thrust::uniform_real_distribution<float> u01(0, 1);
 	if (cur_trace.remainingBounces > 1 && depth > 8) {
 		glm::vec3 throughput_albedo = cur_trace.throughput;
 		float survival_probability = MAX(throughput_albedo.x, MAX(throughput_albedo.y, throughput_albedo.z));
@@ -325,10 +326,10 @@ __global__ void shadeMaterialMIS(
 		}
 		cur_trace.throughput /= survival_probability;
 	}
-
+	int3 rand_seed = make_int3(iter, idx, depth);
 	// At least one bounce remaining
 	if (trace_buffer[idx].remainingBounces > 0) {
-		scatterRay(cur_trace, shadow_ray, record, material, texObjs, lights, num_lights, total_lights_weight, rng);
+		scatterRay(cur_trace, shadow_ray, record, material, texObjs, lights, num_lights, total_lights_weight, rand_seed, rng);
 	}
 }
 

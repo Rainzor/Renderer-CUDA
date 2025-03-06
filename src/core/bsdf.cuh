@@ -1,3 +1,8 @@
+/*
+* Copy from https://github.com/jan-van-bergen/GPU-Raytracer/blob/master/Src/CUDA/BSDF.h
+*/
+
+
 #pragma once
 
 #include <cuda_texture_types.h>
@@ -142,18 +147,17 @@ bool dielectric_sample(const MaterialDielectric& material,
     float alpha_x = roughness_to_alpha(material.linear_roughness);
     float alpha_y = roughness_to_alpha(material.linear_roughness);
 
-    float cos_theta_i = omega_i.z;
-
-    float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, cos_theta_i, entering_material);
-
+    //float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_i.z, entering_material);
+	float E_i = 1.0f;
     float F_avg = average_fresnel(material.ior);
     if (!entering_material) {
         F_avg = 1.f - (1.f - F_avg) / square(material.ior);
     }
 
-    float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
-    float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
-
+    //float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
+	float E_avg_leave = 1.0f;
+    //float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
+	float E_avg_enter = 1.0f;
     float x = kulla_conty_dielectric_reciprocity_factor(E_avg_enter, E_avg_leave);
     float ratio = (entering_material ? x : (1.0f - x)) * (1.0f - F_avg);
 
@@ -170,8 +174,8 @@ bool dielectric_sample(const MaterialDielectric& material,
 
     if (rand_bsdf_0.x < E_i) {
         // Sample single scatter component
-		omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_bsdf_1.x, rand_bsdf_1.x);
-
+		//omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_bsdf_1.x, rand_bsdf_1.y);
+		omega_m = glm::vec3(0.f, 0.f, 1.f);
 		F = fresnel_dielectric(glm::dot(omega_i, omega_m), eta);
         reflected = rand_bsdf_0.y < F;
 		if (reflected) {
@@ -203,7 +207,7 @@ bool dielectric_sample(const MaterialDielectric& material,
 	const float3 omega_o3 = make_float3(omega_o.x, omega_o.y, omega_o.z);
 	const float3 omega_m3 = make_float3(omega_m.x, omega_m.y, omega_m.z);
 
-    float D = ggx_D(omega_m3, alpha_x, alpha_y);
+    float D  = ggx_D(omega_m3, alpha_x, alpha_y);
     float G1 = ggx_G1(omega_i3, alpha_x, alpha_y);
     float G2 = ggx_G2(omega_o3, omega_i3, omega_m3, alpha_x, alpha_y);
 
@@ -220,7 +224,8 @@ bool dielectric_sample(const MaterialDielectric& material,
         bsdf_single = F * G2 * D / (4.0f * omega_i.z); // BRDF times cos(theta_o)
         pdf_single = F * G1 * D / (4.0f * omega_i.z);
 
-        float E_o = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
+        //float E_o = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
+		float E_o = 1.0f;
         float E_avg = entering_material ? E_avg_enter : E_avg_leave;
 
         bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
@@ -229,7 +234,8 @@ bool dielectric_sample(const MaterialDielectric& material,
         bsdf_single = (1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m) * square(eta)); // BRDF times cos(theta_o)
         pdf_single = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 
-        float E_o = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
+        //float E_o = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
+		float E_o = 1.0f;
         float E_avg = entering_material ? E_avg_leave : E_avg_enter; // NOTE: inverted!
 
         bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
@@ -353,7 +359,7 @@ __device__ bool conductor_sample(const MaterialConductor& material,
     if (rand_bsdf_0.x < E_i) {
         // Sample single scatter component
         omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_bsdf_1.x, rand_bsdf_1.y);
-        omega_o = reflect_direction(-omega_i, omega_m);
+        omega_o = reflect_direction(omega_i, omega_m);
     }
     else {
         // Sample multiple scatter component
@@ -486,8 +492,11 @@ void scatterRay(
         const Light* lights,
 	    const int num_lights,
         const float total_lights_weight,
-        thrust::default_random_engine& rng) {
+	    const int3 rand_seed,
+	    thrust::default_random_engine& rng
+    ) {
     // ! Scatter the ray according to the type of material
+
     thrust::uniform_real_distribution<float> u01(0, 1);
 	Ray ray_in = path.ray;
     glm::vec3 throughput_in = path.throughput;
@@ -500,7 +509,7 @@ void scatterRay(
 	orthonormal_basis(normal, tangent, bitangent);
 
 	glm::vec3 omega_i = world_to_local(-ray_in.direction, tangent, bitangent, normal);
-    if (omega_i.z <= 0.0f) return;
+    //if (omega_i.z <= 0.0f) return;
 
 
     if (material->type == MaterialType::SPECULAR){ // Perfect Reflection

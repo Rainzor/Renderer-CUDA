@@ -1,0 +1,91 @@
+{
+    "name": "teapot",
+    "sensor": {
+        "type": "perspective",
+        "fovy": 30,
+        "eye": [0, 10, 15],
+        "lookat": [0, 0, 0],
+        "up": [0, 1, 0],
+        "focal": 0,
+        "aperture": 0,
+        "film": {
+            "resolution": [1024, 1024],
+            "spp": 1024
+        }
+    },
+    "integrator": {
+        "type": "path",
+        "maxdepth": 32
+    },
+    "bsdf":[
+        {
+            "type": "diffuse",
+            "rgb": [0.1, 0.1, 0.1],
+            "id": "gray"
+        },
+        {
+            "type": "diffuse",
+            "rgb": [0.4860, 0.6310, 0.6630],
+            "id": "blue"
+        },
+        {
+            "type": "dielectric",
+            "ior": 1.8,
+            "alpha": 0.5,
+            "id": "dielectric"
+        },
+        {
+            "type": "conductor",
+            "eta": [0.200438, 0.924033, 1.10221],
+            "k": [3.91295, 2.45285, 2.14219],
+            "alpha": 0.2,
+            "id": "conductor"
+        },
+        {
+            "type": "plastic",
+            "rgb": [0.9, 0.9, 0.9],
+            "alpha": 0.1,
+            "id": "plastic"
+        }
+    ],
+    "shape": [
+        {
+            "type": "obj",
+            "filename": "models/floor.obj",
+            "usemtl": false,
+            "bsdf": "blue",
+            "transform": {
+                "translate": [0, -5, 0],
+                "rotate": [0, 0, 0],
+                "scale": [1, 1, 1]
+            }
+        },
+        {   
+            "type": "obj",
+            "filename": "models/teapot0.obj",
+            "usemtl": false,
+            "bsdf": "plastic",
+            "transform": {
+                "translate": [0, 0, 0],
+                "rotate": [0, 90, 0],
+                "scale": [1, 1, 1]
+            }
+        },
+        {
+            "type": "obj",
+            "filename": "models/teapot1.obj",
+            "usemtl": false,
+            "bsdf": "plastic",
+            "transform": {
+                "translate": [0, 0, 0],
+                "rotate": [0, 90, 0],
+                "scale": [1, 1, 1]
+            }
+        }
+    ],
+    "emitter": {
+        "type": "envmap",
+        "filename": "textures/envmap.hdr",
+        "scale": 1
+    }
+}

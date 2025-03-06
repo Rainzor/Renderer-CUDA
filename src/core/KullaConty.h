@@ -1,3 +1,8 @@
+/*
+* Copy from https://github.com/jan-van-bergen/GPU-Raytracer/blob/pbrt_loader/Src/CUDA/KullaConty.h
+*/
+
+
 #pragma once
 #include <device_launch_parameters.h>
 #include "common.h"
@@ -109,10 +114,10 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, C
 		//float  rand_fresnel = random<SampleDimension::BSDF_0>(thread_index, 0, sample_index).y;
 		//float2 rand_brdf    = random<SampleDimension::BSDF_1>(thread_index, 0, sample_index);
 
-		thrust::default_random_engine rng_0 = makeSeededRandomEngine(thread_index, int(SampleDimension::BSDF_0), sample_index);
+		thrust::default_random_engine rng_0 = makeSeededRandomEngine(sample_index, thread_index, int(SampleDimension::BSDF_0));
 		float  rand_fresnel = thrust::uniform_real_distribution<float>(0.0f, 1.0f)(rng_0);
 
-		thrust::default_random_engine rng_1 = makeSeededRandomEngine(thread_index, int(SampleDimension::BSDF_1), sample_index);
+		thrust::default_random_engine rng_1 = makeSeededRandomEngine(sample_index, thread_index, int(SampleDimension::BSDF_1));
 		thrust::uniform_real_distribution<float> brdf_01(0.0f, 1.0f);
 		float2 rand_brdf = make_float2(brdf_01(rng_1), brdf_01(rng_1));
 
@@ -126,14 +131,16 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, C
 
 		float3 omega_o;
 		if (reflected) {
-			omega_o = reflect_direction(omega_i, omega_m);
-		} else {
-			omega_o = refract_direction(omega_i, omega_m, eta);
+			omega_o = 2.0f * dot(omega_i, omega_m) * omega_m - omega_i;
+		}
+		else {
+			float k = 1.0f - eta * eta * (1.0f - square(dot(omega_i, omega_m)));
+			omega_o = (eta * abs_dot(omega_i, omega_m) - safe_sqrt(k)) * omega_m - eta * omega_i;
 		}
 
 		if (reflected ^ (omega_o.z >= 0.0f)) return 0.0f; // Hemisphere check: reflection should have positive z, transmission negative z
 
-		float D  = ggx_D (omega_m, alpha_x, alpha_y);
+		float D = ggx_D(omega_m, alpha_x, alpha_y);
 		float G1 = ggx_G1(omega_i, alpha_x, alpha_y);
 		float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
@@ -145,11 +152,12 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, C
 		float pdf;
 		if (reflected) {
 			pdf = F * G1 * D / (4.0f * omega_i.z);
-		} else {
+		}
+		else {
 			pdf = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 		}
-		return pdf > 0.f ? weight : 0.0f;
-	};
+		return (pdf>0.f) ? weight : 0.0f;
+		};
 
 	float avg = 0.0f;
 	constexpr int NUM_SAMPLES = 100000;
@@ -211,8 +219,8 @@ extern "C" __global__ void kernel_integrate_conductor(float* lut_directional_alb
 	float3 omega_i = make_float3(sin_theta, 0.0f, cos_theta);
 
 	auto sample_conductor = [](int thread_index, int sample_index, float linear_roughness, float3 omega_i) -> float {
-		//float2 rand_brdf = random<SampleDimension::BSDF_0>(thread_index, 0, sample_index);
-		thrust::default_random_engine rng = makeSeededRandomEngine(thread_index, int(SampleDimension::BSDF_0), sample_index);
+		thrust::default_random_engine rng = makeSeededRandomEngine(sample_index, thread_index, int(SampleDimension::BSDF_0));
+		//thrust::default_random_engine rng = makeSeededRandomEngine(thread_index, int(SampleDimension::BSDF_0), sample_index);
 		thrust::uniform_real_distribution<float> brdf_01(0.0f, 1.0f);
 		float2 rand_brdf = make_float2(brdf_01(rng), brdf_01(rng));
 
@@ -220,7 +228,7 @@ extern "C" __global__ void kernel_integrate_conductor(float* lut_directional_alb
 		float alpha_y = roughness_to_alpha(linear_roughness);
 
 		float3 omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
-		float3 omega_o = reflect_direction(omega_i, omega_m);
+		float3 omega_o = reflect(-omega_i, omega_m);
 
 		if (dot(omega_o, omega_m) <= 0.0f || omega_o.z <= 0.0f) return 0.0f;
 
@@ -231,7 +239,7 @@ extern "C" __global__ void kernel_integrate_conductor(float* lut_directional_alb
 		float weight = G2 / G1; // BRDF * cos(theta_o) / pdf (NOTE: Fresnel factor not included!)
 
 		float pdf = G1 * D / (4.0f * omega_i.z);
-		return pdf > 0.f ? weight : 0.0f;
+		return pdf>0.f ? weight : 0.0f;
 		};
 
 	float avg = 0.0f;
