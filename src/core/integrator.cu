@@ -297,7 +297,7 @@ __global__ void shadeMaterialMIS(
 			return;
 		}
 
-		glm::vec3 light_point = getPointOnRay(cur_trace.ray, record.t);
+		glm::vec3 light_point = getPointOnRay(cur_trace.ray, record.t, record.surfaceNormal);
 		glm::vec3 light_normal = record.surfaceNormal;
 		float cosine_term = glm::abs(glm::dot(light_normal, -cur_trace.ray.direction));
 		float distance_to_light_squared = record.t * record.t;

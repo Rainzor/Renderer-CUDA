@@ -13,8 +13,12 @@ struct Ray {
  * Compute a point at parameter value `t` on ray `r`.
  * Falls slightly short so that it doesn't intersect the object it's hitting.
  */
-__device__ inline glm::vec3 getPointOnRay(Ray r, float t) {
-    return r.origin + (t - 0.001f) * glm::normalize(r.direction);
+__device__ inline glm::vec3 getPointOnRay(const Ray& r, float t) {
+    return r.origin + t * r.direction;
+}
+
+__device__ inline glm::vec3 getPointOnRay(const Ray& r,float t,const glm::vec3& normal) {
+	return r.origin + t * r.direction + EPSILON * normal;
 }
 
 __device__ inline glm::vec3 reflect_direction(glm::vec3 direction, glm::vec3 normal) {

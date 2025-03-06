@@ -145,7 +145,7 @@ __device__ bool trimeshIntersectionTest(Ray r, float tmax,
 	record.t = -1;
 
     Ray &q = r;
-	float tmin = 0;
+	float tmin = EPSILON;
 	float t = tmax;
 	glm::vec3 weight;
 
@@ -243,7 +243,6 @@ __device__ bool worldIntersectionTest(
 	Integrator::CUDAGeom* geoms,
     BVHNode* geomBVHs
     ) {
-	bool outside;
     float final_t = tmax;
 	Integrator::CUDARecord test_record;
     glm::vec3 intersect_point;
@@ -279,6 +278,11 @@ __device__ bool worldIntersectionTest(
 				Ray local_ray = ray;
 				Integrator::CUDAGeom& geom = geoms[node->primId];
 				local_ray.origin = multiplyMV(geom.transform.inverseTransform, glm::vec4(local_ray.origin, 1.0f));
+				float local_tmax = FLT_MAX;
+				if (final_t < FLT_MAX) {
+					glm::vec3 local_end = multiplyMV(geom.transform.inverseTransform, glm::vec4(intersect_point,1.f));
+					local_tmax = glm::length(local_end - local_ray.origin);
+				}
 				local_ray.direction = glm::normalize(multiplyMV(geom.transform.inverseTransform, glm::vec4(local_ray.direction, 0.0f)));
 
 				test_record.t = -1.0f;
@@ -286,14 +290,14 @@ __device__ bool worldIntersectionTest(
 
 				if (geom.type == Primitive::CUBE)
 				{
-					is_intersect = boxIntersectionTest(local_ray, final_t, test_record);
+					is_intersect = boxIntersectionTest(local_ray, local_tmax, test_record);
 				}
 				else if (geom.type == Primitive::SPHERE)
 				{
-					is_intersect = sphereIntersectionTest(local_ray, final_t, test_record);
+					is_intersect = sphereIntersectionTest(local_ray, local_tmax, test_record);
 				}
 				else if (geom.type == Primitive::TRIANGLE) {
-					is_intersect = trimeshIntersectionTest(local_ray, final_t, test_record, geom.dev_triangles, geom.dev_bvh_nodes);
+					is_intersect = trimeshIntersectionTest(local_ray, local_tmax, test_record, geom.dev_triangles, geom.dev_bvh_nodes);
 				}
 
 				if (is_intersect) {
@@ -304,7 +308,7 @@ __device__ bool worldIntersectionTest(
 					test_record.material_id = geom.material_id;
 					// Compute the minimum t from the record tests to determine 
 					// what scene geometry object was hit first.
-					if (test_record.t < final_t) {
+					if (test_record.t > 0 &&test_record.t < final_t) {
 						final_t = test_record.t;
 						record = test_record;
 						anyhit = true;
