@@ -182,7 +182,7 @@ std::cout << std::endl << "Creating new material " << materials.size() << "..." 
         newMaterial.ior = materialData["ior"];
     }
 	if (materialData.contains("alpha")) {
-		newMaterial.roughness = materialData["alpha"];
+		newMaterial.roughness = sqrtf(materialData["alpha"]);
 	}
 	if (materialData.contains("eta")) {
 		newMaterial.eta = glm::vec3(materialData["eta"][0], materialData["eta"][1], materialData["eta"][2]);

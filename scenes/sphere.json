@@ -49,13 +49,13 @@
             "type": "conductor",
             "eta": [0.200438, 0.924033, 1.10221],
             "k": [3.91295, 2.45285, 2.14219],
-            "alpha": 0.1,
+            "alpha": 0.3,
             "id": "conductor"
         },
         {
             "type": "plastic",
             "rgb": [0.52941, 0.80784, 1.0],
-            "alpha": 0.01,
+            "alpha": 0.1,
             "id": "plastic"
         }
     ],
@@ -78,7 +78,7 @@
         },
         {
             "type": "sphere",
-            "bsdf": "conductor",
+            "bsdf": "dielectric",
             "transform": {
                 "translate": [0, 4, -4],
                 "rotate": [0, 0, 0],
