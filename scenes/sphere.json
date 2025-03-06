@@ -41,8 +41,8 @@
         },
         {
             "type": "dielectric",
-            "ior": 1.3,
-            "alpha": 1,
+            "ior": 1.5,
+            "alpha": 0.01,
             "id": "dielectric"
         },
         {

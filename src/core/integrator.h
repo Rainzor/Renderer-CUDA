@@ -248,6 +248,8 @@ public:
 				}
 				else if(scene->materials[i].type == MaterialType::DIELECTRIC){
 					newMaterial.dielectric.ior = scene->materials[i].ior;
+					newMaterial.dielectric.linear_roughness = scene->materials[i].roughness;
+					newMaterial.dielectric.medium_id = -1;
 					newMaterial.type = MaterialType::DIELECTRIC;
 				}
 				else if(scene->materials[i].type == MaterialType::CONDUCTOR){
