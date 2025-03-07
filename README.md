@@ -28,8 +28,16 @@ CUDA Path Tracer
   - Plastic
   
   Kulla Conty approximation for multi-scattering is implemented for Dielectrics and Conductors
-  
-- **Denoiser**
+
+****
+
+#### TODO:
+
+- [ ] **Denoiser**
+
+- [ ] **Material BSDF Data Structure**
+
+- [ ] **Global Queue**
 
 
 ## Screenshots
@@ -47,7 +55,6 @@ CUDA Path Tracer
 - **GLM**
 - **ImGui**
 - **Stb Image**
-- **Tinygltf Loader**
 - **Tinyobj loader**
 - **nlohmann-json**
 
