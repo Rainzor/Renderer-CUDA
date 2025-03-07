@@ -31,7 +31,7 @@
         },
         {
             "type": "diffuse",
-            "rgb": [0.1, 0.1, 0.1],
+            "rgb": [0.2, 0.2, 0.2],
             "id": "gray"
         },
         {
@@ -83,6 +83,15 @@
                 "translate": [0, 4, -4],
                 "rotate": [0, 0, 0],
                 "scale": [2, 2, 2]
+            }
+        },
+        {
+            "type": "sphere",
+            "bsdf": "blue",
+            "transform": {
+                "translate": [0, 4, -4],
+                "rotate": [0, 0, 0],
+                "scale": [1, 1, 1]
             }
         }
     ]

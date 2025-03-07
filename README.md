@@ -23,7 +23,9 @@ CUDA Path Tracer
 
 ## Screenshots
 
-![bunny_1024spp](./assets/bunny_1024spp.png)
+![bunny_dielectric](D:\Projects\Renderer-CUDA\assets\bunny_dielectric.png)
+
+![mitsuba_conductor](D:\Projects\Renderer-CUDA\assets\mitsuba_conductor.png)
 
 ## Dependencies
 

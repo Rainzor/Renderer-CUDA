@@ -2,89 +2,94 @@
     "name": "bunny",
     "sensor": {
         "type": "perspective",
-        "fovy": 10,
-        "eye": [0, 12, 20],
+        "fovy": 30,
+        "eye": [0, 0.5, -3],
         "lookat": [0, 0, 0],
         "up": [0, 1, 0],
         "focal": 0,
         "aperture": 0,
         "film": {
-            "resolution": [2048, 512],
+            "resolution": [1024, 1024],
             "spp": 1024
         }
     },
     "integrator": {
         "type": "path",
-        "maxdepth": 32
+        "maxdepth": 64
     },
     "bsdf":[
         {
+            "type": "light",
+            "rgb": [1, 1, 1],
+            "emission": 5,
+            "id": "light"
+        },
+        {
             "type": "diffuse",
-            "rgb": [0.1, 0.1, 0.1],
+            "rgb": [0.8, 0.8, 0.8],
+            "id": "white"
+        },
+        {
+            "type": "diffuse",
+            "rgb": [0.2, 0.2, 0.2],
             "id": "gray"
         },
         {
             "type": "diffuse",
-            "rgb": [0.4860, 0.6310, 0.6630],
+            "rgb": [0.52941, 0.80784, 1.0],
             "id": "blue"
         },
         {
+            "type" :"dielectric",
+            "ior": 1.517,
+            "alpha": 0,
+            "id": "dielectric00"
+        },
+        {
+            "type" :"dielectric",
+            "ior": 1.517,
+            "alpha": 0.01,
+            "id": "dielectric01"
+        },
+        {
+            "type" :"dielectric",
+            "ior": 1.517,
+            "alpha": 0.05,
+            "id": "dielectric05"
+        },
+        {
             "type": "dielectric",
-            "ior": 1.3,
+            "ior": 1.517,
             "alpha": 0.1,
             "id": "dielectric1"
         },
         {
             "type": "dielectric",
-            "ior": 1.3,
+            "ior": 1.517,
             "alpha": 0.2,
             "id": "dielectric2"
         },
         {
             "type": "dielectric",
-            "ior": 1.3,
+            "ior": 1.517,
             "alpha": 0.3,
             "id": "dielectric3"
         },
         {
             "type": "dielectric",
-            "ior": 1.3,
+            "ior": 1.517,
             "alpha": 0.4,
             "id": "dielectric4"
         },
         {
             "type": "dielectric",
-            "ior": 1.3,
+            "ior": 1.517,
             "alpha": 0.5,
             "id": "dielectric5"
         },
         {
             "type": "dielectric",
-            "ior": 1.3,
-            "alpha": 0.6,
-            "id": "dielectric6"
-        },
-        {
-            "type": "dielectric",
-            "ior": 1.3,
-            "alpha": 0.7,
-            "id": "dielectric7"
-        },
-        {
-            "type": "dielectric",
-            "ior": 1.3,
-            "alpha": 0.8,
-            "id": "dielectric8"
-        },
-        {
-            "type": "dielectric",
-            "ior": 1.3,
-            "alpha": 0.9,
-            "id": "dielectric9"
-        },
-        {
-            "type": "dielectric",
-            "ior": 1.3,
+            "ior": 1.517,
             "alpha": 1.0,
             "id": "dielectric10"
         }
@@ -92,171 +97,27 @@
     "shape": [
         {
             "type": "obj",
-            "filename": "models/floor.obj",
+            "filename": "models/background.obj",
             "usemtl": false,
             "bsdf": "blue"
         },
         {
             "type": "obj",
-            "filename": "models/mitsuba0.obj",
+            "filename": "models/out_light.obj",
             "usemtl": false,
-            "bsdf": "gray",
-            "transform": {
-                "translate": [12, 0, 0]
-            }
+            "bsdf": "light"
         },
         {
             "type": "obj",
-            "filename": "models/mitsuba1.obj",
-            "usemtl": false,
-            "bsdf": "dielectric1",
-            "transform": {
-                "translate": [12, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba0.obj",
-            "usemtl": false,
-            "bsdf": "gray",
-            "transform": {
-                "translate": [9, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba1.obj",
-            "usemtl": false,
-            "bsdf": "dielectric2",
-            "transform": {
-                "translate": [9, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba0.obj",
-            "usemtl": false,
-            "bsdf": "gray",
-            "transform": {
-                "translate": [6, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba1.obj",
-            "usemtl": false,
-            "bsdf": "dielectric3",
-            "transform": {
-                "translate": [6, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba0.obj",
-            "usemtl": false,
-            "bsdf": "gray",
-            "transform": {
-                "translate": [3, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba1.obj",
-            "usemtl": false,
-            "bsdf": "dielectric4",
-            "transform": {
-                "translate": [3, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba0.obj",
+            "filename": "models/knob0.obj",
             "usemtl": false,
             "bsdf": "gray"
         },
         {
             "type": "obj",
-            "filename": "models/mitsuba1.obj",
+            "filename": "models/knob1.obj",
             "usemtl": false,
-            "bsdf": "dielectric5"
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba0.obj",
-            "usemtl": false,
-            "bsdf": "gray",
-            "transform": {
-                "translate": [-3, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba1.obj",
-            "usemtl": false,
-            "bsdf": "dielectric6",
-            "transform": {
-                "translate": [-3, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba0.obj",
-            "usemtl": false,
-            "bsdf": "gray",
-            "transform": {
-                "translate": [-6, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba1.obj",
-            "usemtl": false,
-            "bsdf": "dielectric7",
-            "transform": {
-                "translate": [-6, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba0.obj",
-            "usemtl": false,
-            "bsdf": "gray",
-            "transform": {
-                "translate": [-9, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba1.obj",
-            "usemtl": false,
-            "bsdf": "dielectric8",
-            "transform": {
-                "translate": [-9, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba0.obj",
-            "usemtl": false,
-            "bsdf": "gray",
-            "transform": {
-                "translate": [-12, 0, 0]
-            }
-        },
-        {
-            "type": "obj",
-            "filename": "models/mitsuba1.obj",
-            "usemtl": false,
-            "bsdf": "dielectric9",
-            "transform": {
-                "translate": [-12, 0, 0]
-            }
+            "bsdf": "dielectric00"
         }
-
-    ],
-    "emitter": {
-        "type": "envmap",
-        "filename": "textures/envmap.hdr",
-        "scale": 1
-    }
+    ]
 }

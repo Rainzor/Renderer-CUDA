@@ -251,6 +251,38 @@ bool dielectric_sample(const MaterialDielectric& material,
 	return pdf > 0.f;
 }
 
+__device__ bool pure_dielectric_sampele(const MaterialDielectric& material,
+                            const bool entering_material,
+                            const glm::vec3& omega_i,
+                            glm::vec3& omega_o,
+                            float& pdf,
+                            glm::vec3& throughput,
+                            thrust::default_random_engine& rng) 
+{
+    float eta = entering_material ? 1.f / material.ior : material.ior;
+    
+    thrust::random::uniform_real_distribution<float> u01(0, 1);
+    
+	float rand_fresnel = u01(rng);
+	float F = fresnel_dielectric(omega_i.z, eta);
+	bool reflected = rand_fresnel < F;
+    if (reflected) {
+        // Specular reflection
+
+        omega_o = reflect_direction(omega_i, glm::vec3(0.f, 0.f, 1.f));
+    }
+    else {
+		// Specular transmission
+		omega_o = refract_direction(omega_i, glm::vec3(0.f, 0.f, 1.f), eta);
+    }
+
+    if (reflected ^ (omega_o.z >= 0.f)) return false;
+
+	pdf = 1.f;
+	throughput *= glm::vec3(1.f);
+
+	return true;
+}
 
 __device__ bool dielectric_eval(const MaterialDielectric& material,
                                 const bool entering_material,
@@ -553,8 +585,12 @@ void scatterRay(
 		glm::vec3 omega_o;
 		float pdf;
 		glm::vec3 throughput(1.f);
-		if (!dielectric_sample(dielectric, record.outside, omega_i, omega_o, pdf, throughput, rng))
-			return;
+        if (dielectric.linear_roughness == 0) {
+            pure_dielectric_sampele(dielectric, record.outside, omega_i, omega_o, pdf, throughput, rng);
+        }
+        else if (!dielectric_sample(dielectric, record.outside, omega_i, omega_o, pdf, throughput, rng)) {
+            return;
+        }
 		direct_out = local_to_world(omega_o, tangent, bitangent, normal);
 		path.throughput *= throughput;
         path.last_pdf = pdf;
