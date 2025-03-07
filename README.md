@@ -3,21 +3,32 @@ CUDA Path Tracer
 
 ## Features
 - **Wavefront Path Tracing**
-  - **Sperating megakernels into several kernels**: `RayGen`, `Intersection`, `Shade` ...
+  - **Separating mega-kernels into several kernels**: `RayGen`, `Intersection`, `Shade` ...
   - **Less Warp Divergence**: Stream compacting the ray path segments 
   - **Improve Memory Access Coalescing**: SoA data layout and sorting path segments by material type before shading
+  
 - **Texture Mapping**: More surface color based on CUDA `Texture Object`
+
 - **Triangle Primitive Mesh**: More shapes based on `Obj` loader 
+
 - **Accelerate Data Structure** `BVH`: 
   - Binary Radix Tree Construction
   - Parallel Tree Traversal
   - Two Level Acceleration Structures: world level (TLAS) & model level (BLAS)
+  
 - **Efficient Monte Carlo Integrator**: 
   - **Next Event Estimation**: Shadow rays are explicitly aimed at light sources
   - **Multiple Importance Sampling**: Combining the PDFs of different sampling techniques
-- **Physically Based Rendering**:
+  
+- **Physically Based Rendering**: 
+  
   - Diffuse (Lambertian)
-  - Fresnel Reflection
+  - Dielectric
+  - Conductor
+  - Plastic
+  
+  Kulla Conty approximation for multi-scattering is implemented for Dielectrics and Conductors
+  
 - **Denoiser**
 
 
